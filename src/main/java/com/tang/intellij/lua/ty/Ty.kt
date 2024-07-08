@@ -36,6 +36,7 @@ enum class TyKind {
     Void,
     Tuple,
     GenericParam,
+    PrimitiveLiteral,
     StringLiteral
 }
 enum class TyPrimitiveKind {
@@ -226,6 +227,7 @@ abstract class Ty(override val kind: TyKind) : ITy {
                 TyKind.Function to TyFunctionSerializer,
                 TyKind.Generic to TyGenericSerializer,
                 TyKind.GenericParam to TyGenericParamSerializer,
+                TyKind.PrimitiveLiteral to TyPrimitiveLiteralSerializer,
                 TyKind.StringLiteral to TyStringLiteralSerializer,
                 TyKind.Tuple to TyTupleSerializer,
                 TyKind.Union to TyUnionSerializer

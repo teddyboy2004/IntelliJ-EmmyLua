@@ -19,11 +19,14 @@ package com.tang.intellij.lua.documentation
 import com.intellij.codeInsight.documentation.DocumentationManagerUtil
 import com.intellij.lang.documentation.AbstractDocumentationProvider
 import com.intellij.lang.documentation.DocumentationProvider
+import com.intellij.psi.PsiComment
+import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiManager
 import com.intellij.psi.util.PsiTreeUtil
 import com.tang.intellij.lua.comment.psi.LuaDocTagClass
 import com.tang.intellij.lua.comment.psi.LuaDocTagField
+import com.tang.intellij.lua.comment.psi.api.LuaComment
 import com.tang.intellij.lua.editor.completion.LuaDocumentationLookupElement
 import com.tang.intellij.lua.psi.*
 import com.tang.intellij.lua.search.SearchContext
@@ -144,7 +147,27 @@ class LuaDocumentationProvider : AbstractDocumentationProvider(), DocumentationP
 
         //comment content
         when (classMember) {
-            is LuaCommentOwner -> renderComment(sb, classMember.comment, tyRenderer)
+            is LuaCommentOwner -> {
+                renderComment(sb, classMember.comment, tyRenderer)
+                if (classMember.comment == null) {
+                    val member = classMember as LuaClassMember
+                    val doc = PsiDocumentManager.getInstance(context.project).getDocument(member.containingFile)
+                    doc?.let {
+                        val lineNumber = doc.getLineNumber(member.textOffset)
+                        var current: PsiElement? = PsiTreeUtil.nextVisibleLeaf(member)
+                        // 支持同一行的--注释
+                        while (current != null && lineNumber == doc.getLineNumber(current.textOffset))
+                        {
+                            if (current is PsiComment && current !is LuaComment) {
+                                // 同一行的注释
+                                sb.append(current.text)
+                                break
+                            }
+                            current = PsiTreeUtil.nextVisibleLeaf(current)
+                        }
+                    }
+                }
+            }
             is LuaDocTagField -> renderCommentString("  ", null, sb, classMember.commentString)
             is LuaIndexExpr -> {
                 val p1 = classMember.parent

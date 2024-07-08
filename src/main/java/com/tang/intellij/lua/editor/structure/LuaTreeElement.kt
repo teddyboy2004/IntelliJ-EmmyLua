@@ -18,15 +18,25 @@ package com.tang.intellij.lua.editor.structure
 
 import com.intellij.ide.structureView.StructureViewTreeElement
 import com.intellij.ide.util.treeView.smartTree.TreeElement
+import com.intellij.navigation.ColoredItemPresentation
 import com.intellij.navigation.ItemPresentation
 import com.intellij.navigation.NavigationItem
+import com.intellij.openapi.editor.colors.CodeInsightColors
+import com.intellij.openapi.editor.colors.TextAttributesKey
+import com.intellij.psi.util.PsiTreeUtil
+import com.tang.intellij.lua.psi.LuaClassMember
+import com.tang.intellij.lua.psi.LuaCommentOwner
+import com.tang.intellij.lua.psi.LuaPsiElement
+import com.tang.intellij.lua.search.SearchContext
+import com.tang.intellij.lua.ty.TyTable
 import javax.swing.Icon
 
 /**
  * Created by TangZX on 2016/12/28.
  */
-open class LuaTreeElement(val element: NavigationItem, var name: String, val icon: Icon) : StructureViewTreeElement {
+open class LuaTreeElement(val element: NavigationItem, var name: String, var icon: Icon) : StructureViewTreeElement {
     var parent: LuaTreeElement? = null
+    var inherited: Boolean = false
     private val children = LinkedHashMap<String, LuaTreeElement>()
 
     open fun getPresentableText(): String? {
@@ -38,17 +48,47 @@ open class LuaTreeElement(val element: NavigationItem, var name: String, val ico
     }
 
     override fun getPresentation(): ItemPresentation {
-        return object : ItemPresentation {
+        return object : ColoredItemPresentation {
             override fun getPresentableText(): String? {
                 return this@LuaTreeElement.getPresentableText()
             }
 
             override fun getLocationString(): String? {
+                if (this@LuaTreeElement.inherited) {
+                    var name: String? = null
+                    val item = this@LuaTreeElement.element
+                    if (item is LuaClassMember) {
+                        val context = SearchContext.get(item.project)
+                        val clazz = item.guessParentType(context)
+                        if (clazz is TyTable)
+                        {
+                            val commentOwner = PsiTreeUtil.getParentOfType(clazz.table, LuaCommentOwner::class.java)
+                            if (commentOwner?.comment?.tagClass?.name != null)
+                            {
+                                name = commentOwner.comment!!.tagClass?.name
+                            }
+                        }
+                        else if (!clazz.displayName.startsWith("table@")) {
+                            name = clazz.displayName.replace(Regex("#.*$"), "")
+                        }
+                    }
+                    if (name == null && item is LuaPsiElement) {
+                        name = item.containingFile.name
+                    }
+                    return name
+                }
                 return null
             }
 
             override fun getIcon(b: Boolean): Icon? {
                 return this@LuaTreeElement.icon
+            }
+
+            override fun getTextAttributesKey(): TextAttributesKey? {
+                if (this@LuaTreeElement.inherited) {
+                    return CodeInsightColors.NOT_USED_ELEMENT_ATTRIBUTES
+                }
+                return null
             }
         }
     }

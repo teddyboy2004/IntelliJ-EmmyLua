@@ -16,11 +16,18 @@
 
 package com.tang.intellij.lua.reference
 
+import com.intellij.openapi.util.TextRange
 import com.intellij.patterns.PlatformPatterns.psiElement
 import com.intellij.psi.*
+import com.intellij.util.IncorrectOperationException
 import com.intellij.util.ProcessingContext
+import com.tang.intellij.lua.comment.psi.LuaDocTagAlias
+import com.tang.intellij.lua.comment.psi.LuaDocTagClass
 import com.tang.intellij.lua.project.LuaSettings
 import com.tang.intellij.lua.psi.*
+import com.tang.intellij.lua.search.SearchContext
+import com.tang.intellij.lua.stubs.index.LuaShortNameIndex
+import com.tang.intellij.lua.ty.returnStatement
 
 /**
  * reference contributor
@@ -33,6 +40,87 @@ class LuaReferenceContributor : PsiReferenceContributor() {
         psiReferenceRegistrar.registerReferenceProvider(psiElement().withElementType(LuaTypes.NAME_EXPR), NameReferenceProvider())
         psiReferenceRegistrar.registerReferenceProvider(psiElement().withElementType(LuaTypes.GOTO_STAT), GotoReferenceProvider())
         psiReferenceRegistrar.registerReferenceProvider(psiElement().withElementType(LuaTypes.FUNC_DEF), FuncReferenceProvider())
+        psiReferenceRegistrar.registerReferenceProvider(psiElement().withElementType(LuaTypes.LITERAL_EXPR), LuaStringReferenceProvider())
+    }
+
+    internal inner class LuaStringReferenceProvider : PsiReferenceProvider() {
+
+        inner class LuaFileStringReference(val expr: LuaLiteralExpr) : PsiReferenceBase<LuaLiteralExpr>(expr) {
+
+            val id = expr
+
+            override fun getVariants(): Array<Any> = arrayOf()
+
+            @Throws(IncorrectOperationException::class)
+            override fun handleElementRename(newElementName: String): PsiElement {
+                return expr
+            }
+
+            override fun getRangeInElement(): TextRange {
+                val start = id.node.startOffset - myElement.node.startOffset
+                return TextRange(start, start + id.textLength)
+            }
+
+            override fun isReferenceTo(element: PsiElement): Boolean {
+                return false
+            }
+
+            override fun resolve(): PsiElement? {
+                val idName = id.text
+                if (idName.isNullOrEmpty() || idName.isBlank()) {
+                    return null
+                }
+                val text = idName.replace("\"", "")
+                // 支持字符跳转文件
+                if (text.contains(".") || text.contains("/")) {
+                    val filePsi = resolveRequireFile(text, expr.project)
+                    if (filePsi != null) {
+                        val returnStatement = filePsi.returnStatement()
+
+                        if (returnStatement != null && returnStatement.exprList?.exprList?.size == 1) {
+                            val resolvedNameExpr = returnStatement.exprList!!.exprList.first() as? LuaNameExpr
+
+                            return if (resolvedNameExpr != null) {
+                                resolveInFile(resolvedNameExpr.name, resolvedNameExpr, SearchContext.get(myElement.project))
+                            } else returnStatement
+                        }
+                        if (returnStatement != null) {
+                            return returnStatement
+                        }
+                    }
+                    return filePsi
+                }
+                else
+                {
+                    // 支持跳转类型
+                    val find = LuaShortNameIndex.find(text, SearchContext.get(expr.project))
+                    if (find.isNotEmpty()) {
+                        val first = find.first()
+                        if (first is LuaDocTagClass || first is LuaDocTagAlias)
+                            return first
+                    }
+                }
+                return null
+            }
+        }
+
+        override fun getReferencesByElement(psiElement: PsiElement, processingContext: ProcessingContext): Array<PsiReference> {
+            if (psiElement is LuaLiteralExpr && psiElement.text != null) {
+                val parent = psiElement.parent?.parent
+                if (parent is LuaCallExpr)
+                {
+                    val nameRef = parent.expr
+                    if (nameRef is LuaNameExpr) {
+                        // 跳过require判断
+                        if (LuaSettings.isRequireLikeFunctionName(nameRef.getText())) {
+                            return PsiReference.EMPTY_ARRAY
+                        }
+                    }
+                }
+                return arrayOf(LuaFileStringReference(psiElement))
+            }
+            return PsiReference.EMPTY_ARRAY
+        }
     }
 
     internal inner class FuncReferenceProvider : PsiReferenceProvider() {

@@ -23,12 +23,14 @@ import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.Processor
 import com.tang.intellij.lua.Constants
 import com.tang.intellij.lua.ext.recursionGuard
+import com.tang.intellij.lua.lang.type.LuaString
 import com.tang.intellij.lua.project.LuaSettings
 import com.tang.intellij.lua.psi.*
 import com.tang.intellij.lua.psi.impl.LuaNameExprMixin
 import com.tang.intellij.lua.psi.search.LuaShortNamesManager
 import com.tang.intellij.lua.search.GuardType
 import com.tang.intellij.lua.search.SearchContext
+import com.tang.intellij.lua.stubs.index.LuaClassIndex
 
 fun inferExpr(expr: LuaExpr?, context: SearchContext): ITy {
     if (expr == null)
@@ -165,6 +167,38 @@ private fun LuaCallExpr.getReturnTy(sig: IFunSignature, context: SearchContext):
     }
 }
 
+fun LuaCallExpr.inferParam(paramIndex: Int, context: SearchContext): ITy {
+    val luaCallExpr = this
+    val element: PsiElement = luaCallExpr.argList.getOrNull(paramIndex) ?: return Ty.UNKNOWN
+    if (element is LuaIndexExpr && element.lbrack != null && element.name == null) {
+        val luaExpr = element.exprList.lastOrNull()
+        if (luaExpr !is LuaLiteralExpr) {
+            var ty: ITy? = null
+            luaExpr?.let { expr ->
+                val iTy = inferExprInner(expr, context)
+                if (iTy is TyPrimitiveLiteral && iTy.primitiveKind == TyPrimitiveKind.String) {
+                    val fieldName = iTy.value
+                    inferExprInner(element.prefixExpr, context).each {
+                        if (it is TyTable){
+                            it.findMember(fieldName, context)?.let { field ->
+                                ty = field.guessType(context)
+                            }
+                        }
+                    }
+                }
+            }
+            if (ty != null) {
+                return ty as ITy
+            }
+        }
+    }
+
+    if (element is LuaPsiElement) {
+        return inferExprInner(element, context)
+    }
+    return Ty.UNKNOWN
+}
+
 private fun LuaCallExpr.infer(context: SearchContext): ITy {
     val luaCallExpr = this
     // xxx()
@@ -175,6 +209,13 @@ private fun LuaCallExpr.infer(context: SearchContext): ITy {
         val string = luaCallExpr.firstStringArg
         if (string is LuaLiteralExpr) {
             filePath = string.stringValue
+        }
+        else {
+            luaCallExpr.inferParam(0, context).also { type ->
+                if (type is TyPrimitiveLiteral && type.primitiveKind == TyPrimitiveKind.String) {
+                    filePath = type.value
+                }
+            }
         }
         var file: LuaPsiFile? = null
         if (filePath != null)
@@ -307,9 +348,11 @@ private fun isGlobal(nameExpr: LuaNameExpr):Boolean {
 
 fun LuaLiteralExpr.infer(): ITy {
     return when (this.kind) {
-        LuaLiteralKind.Bool -> Ty.BOOLEAN
-        LuaLiteralKind.String -> Ty.STRING
-        LuaLiteralKind.Number -> Ty.NUMBER
+        LuaLiteralKind.Bool -> TyPrimitiveLiteral.getTy(TyPrimitiveKind.Boolean, firstChild.text)
+        LuaLiteralKind.Number -> {
+            TyPrimitiveLiteral.getTy(TyPrimitiveKind.Number, firstChild.text)
+        }
+        LuaLiteralKind.String -> TyPrimitiveLiteral.getTy(TyPrimitiveKind.String, LuaString.getContent(firstChild.text).value)
         LuaLiteralKind.Varargs -> {
             val o = PsiTreeUtil.getParentOfType(this, LuaFuncBodyOwner::class.java)
             o?.varargType ?: Ty.UNKNOWN
@@ -380,11 +423,20 @@ private fun LuaIndexExpr.infer(context: SearchContext): ITy {
 }
 
 private fun guessFieldType(fieldName: String, type: ITyClass, context: SearchContext): ITy {
-    // _G.var = {}  <==>  var = {}
-    if (type.className == Constants.WORD_G)
-        return TyClass.createGlobalType(fieldName)
+    // 23-07-03 10:57 teddysjwu: 增加__super类型判断处理
+    if (LuaSettings.isSuperFieldName(fieldName)) {
+        val superClass = type.getSuperClass(context)
+        if (superClass != null){
+            return superClass
+        }
+    }
 
-    var set:ITy = Ty.UNKNOWN
+    // _G.var = {}  <==>  var = {}
+    if (type.className == Constants.WORD_G) {
+        return TyClass.createGlobalType(fieldName)
+    }
+
+    var set: ITy = Ty.UNKNOWN
 
     LuaShortNamesManager.getInstance(context.project).processMembers(type, fieldName, context, Processor {
         set = set.union(it.guessType(context))

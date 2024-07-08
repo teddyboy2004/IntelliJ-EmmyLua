@@ -19,10 +19,14 @@ package com.tang.intellij.lua.editor.structure
 import com.intellij.ide.util.treeView.smartTree.TreeElement
 import com.intellij.psi.PsiNamedElement
 import com.intellij.psi.util.PsiTreeUtil
+import com.jetbrains.rd.util.remove
+import com.tang.intellij.lua.Constants
 import com.tang.intellij.lua.comment.psi.LuaDocTagClass
 import com.tang.intellij.lua.comment.psi.LuaDocTagField
 import com.tang.intellij.lua.comment.psi.LuaDocVisitor
+import com.tang.intellij.lua.lang.LuaIcons
 import com.tang.intellij.lua.psi.*
+import com.tang.intellij.lua.search.SearchContext
 import java.util.*
 
 
@@ -102,6 +106,11 @@ class LuaStructureVisitor : LuaVisitor() {
             val expr = expressions?.getOrNull(i)
             val nameExpr = variableNames[i]
             val name = nameExpr.name ?: return
+
+            // 不处理参数赋值
+            if (nameExpr is LuaNameExpr && resolve(nameExpr, SearchContext.get(nameExpr.project)) is LuaParamNameDef) {
+                return
+            }
 
             if (nameExpr is PsiNamedElement && findElementNamed(name) != null) {
                 // We're assigning to a previously declared entity -- ignore
@@ -334,6 +343,86 @@ class LuaStructureVisitor : LuaVisitor() {
     }
 
     private fun compressChild(element: TreeElement) {
+        // 23-07-14 20:07 teddysjwu: 文件结构函数下面不显示本地变量
+        if (element is LuaFuncElement) {
+            // 显示函数下的self里的子节点，加到父节点
+            val children = element.children
+            val parent = element.parent
+            val list = ArrayList<LuaTreeElement>()
+            for (it in children) {
+                if (it is LuaTreeElement && it.name == Constants.WORD_SELF) {
+                    if (it.children.isNotEmpty()) {
+                        for (child in it.children) {
+                            val element1 = child as LuaTreeElement
+                            element1.icon = LuaIcons.LOCAL_VAR
+                            list.add(element1)
+                        }
+                    }
+//                    else {
+//                        list.add(it)
+//                    }
+                } else if (it is LuaGlobalVarElement) {
+                    val treeElement = it as LuaTreeElement
+                    treeElement.name += " "
+                    list.add(treeElement)
+                }
+            }
+            element.clearChildren()
+            if (list.isEmpty()) {
+                return
+            }
+            if(parent == null)
+            {
+                // 如果这个是静态函数的话就不做检查了，都加进去
+                list.forEach(){
+                    element.addChild(it)
+                }
+                return
+            }
+
+            var parentChild = parent.children
+            var index = parentChild.indexOf(element)
+            for (treeElement in list) {
+                val name = treeElement.name
+                var needAddChild = true
+                for ((i, e) in parentChild.withIndex()) {
+                    if (i == index)
+                    {
+                        continue
+                    } else if (i > index) {
+                        if (e is LuaTreeElement && e.name == name) {
+                            parentChild = parentChild.remove(e)
+                            needAddChild = true
+                            break
+                        }
+                    } else {
+                        if (e is LuaTreeElement && e.name == name) {
+                            needAddChild = false
+                            break
+                        }
+                        else if(e is LuaFuncElement) {
+                            e.children.forEach { c ->
+                                if ((c is LuaVarElement) && c.name == name) {
+                                    needAddChild = false
+                                    return
+                                }
+                            }
+                            if (!needAddChild) {
+                                break
+                            }
+                        }
+                    }
+                }
+                if (needAddChild) {
+                    element.addChild(treeElement)
+                }
+            }
+            parent.clearChildren()
+            for (treeElement in parentChild) {
+                parent.addChild(treeElement as LuaTreeElement)
+            }
+            return
+        }
         if (element !is LuaVarElement) {
             return
         }

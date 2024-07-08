@@ -41,7 +41,7 @@ import java.util.SortedMap;
 /**
  * Created by tangzx on 2017/6/12.
  */
-public class LuaSettingsPanel implements SearchableConfigurable, Configurable.NoScroll {
+public class LuaSettingsPanel implements SearchableConfigurable{
     private final LuaSettings settings;
     private JPanel myPanel;
     private JTextField constructorNames;
@@ -59,6 +59,9 @@ public class LuaSettingsPanel implements SearchableConfigurable, Configurable.No
     private JComboBox<LuaLanguageLevel> languageLevel;
     private JTextField requireFunctionNames;
     private JTextField tooLargerFileThreshold;
+    private JTextField superFieldNames;
+    private JScrollPane scrollPanel;
+    private LuaCustomTypeConfigPanel typePanel;
 
     public LuaSettingsPanel() {
         this.settings = LuaSettings.Companion.getInstance();
@@ -70,8 +73,10 @@ public class LuaSettingsPanel implements SearchableConfigurable, Configurable.No
         nilStrict.setSelected(settings.isNilStrict());
         recognizeGlobalNameAsCheckBox.setSelected(settings.isRecognizeGlobalNameAsType());
         additionalRoots.setRoots(settings.getAdditionalSourcesRoot());
+        typePanel.setRoots(settings.getCustomTypeCfg());
         enableGenericCheckBox.setSelected(settings.getEnableGeneric());
         requireFunctionNames.setText(settings.getRequireLikeFunctionNamesString());
+        superFieldNames.setText(settings.getSuperFieldNamesString());
         tooLargerFileThreshold.setDocument(new IntegerDocument());
         tooLargerFileThreshold.setText(String.valueOf(settings.getTooLargerFileThreshold()));
 
@@ -104,13 +109,14 @@ public class LuaSettingsPanel implements SearchableConfigurable, Configurable.No
     @Nullable
     @Override
     public JComponent createComponent() {
-        return myPanel;
+        return scrollPanel;
     }
 
     @Override
     public boolean isModified() {
         return !StringUtil.equals(settings.getConstructorNamesString(), constructorNames.getText()) ||
                 !StringUtil.equals(settings.getRequireLikeFunctionNamesString(), requireFunctionNames.getText()) ||
+                !StringUtil.equals(settings.getSuperFieldNamesString(), superFieldNames.getText()) ||
                 settings.getTooLargerFileThreshold() != getTooLargerFileThreshold() ||
                 settings.isStrictDoc() != strictDoc.isSelected() ||
                 settings.isSmartCloseEnd() != smartCloseEnd.isSelected() ||
@@ -123,7 +129,8 @@ public class LuaSettingsPanel implements SearchableConfigurable, Configurable.No
                 settings.getAttachDebugCaptureStd() != captureStd.isSelected() ||
                 settings.getAttachDebugDefaultCharsetName() != defaultCharset.getSelectedItem() ||
                 settings.getLanguageLevel() != languageLevel.getSelectedItem() ||
-                !Arrays.equals(settings.getAdditionalSourcesRoot(), additionalRoots.getRoots(), String::compareTo);
+                !Arrays.equals(settings.getAdditionalSourcesRoot(), additionalRoots.getRoots(), String::compareTo)||
+                !Arrays.equals(settings.getCustomTypeCfg(), typePanel.getRoots());
     }
 
     @Override
@@ -132,6 +139,8 @@ public class LuaSettingsPanel implements SearchableConfigurable, Configurable.No
         constructorNames.setText(settings.getConstructorNamesString());
         settings.setRequireLikeFunctionNamesString(requireFunctionNames.getText());
         requireFunctionNames.setText(settings.getRequireLikeFunctionNamesString());
+        settings.setSuperFieldNamesString(superFieldNames.getText());
+        superFieldNames.setText(settings.getSuperFieldNamesString());
         settings.setTooLargerFileThreshold(getTooLargerFileThreshold());
         settings.setStrictDoc(strictDoc.isSelected());
         settings.setSmartCloseEnd(smartCloseEnd.isSelected());
@@ -140,6 +149,7 @@ public class LuaSettingsPanel implements SearchableConfigurable, Configurable.No
         settings.setNilStrict(nilStrict.isSelected());
         settings.setRecognizeGlobalNameAsType(recognizeGlobalNameAsCheckBox.isSelected());
         settings.setAdditionalSourcesRoot(additionalRoots.getRoots());
+        settings.setCustomTypeCfg(typePanel.getRoots());
         settings.setEnableGeneric(enableGenericCheckBox.isSelected());
         settings.setAttachDebugCaptureOutput(captureOutputDebugString.isSelected());
         settings.setAttachDebugCaptureStd(captureStd.isSelected());
