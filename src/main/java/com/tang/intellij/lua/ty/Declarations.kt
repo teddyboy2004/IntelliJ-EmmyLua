@@ -179,6 +179,28 @@ private fun LuaTableField.infer(context: SearchContext): ITy {
     return if (valueExpr != null) infer(valueExpr, context) else Ty.UNKNOWN
 }
 
+fun LuaPsiFile.returnStatement(): LuaReturnStat? {
+    if (this.moduleName != null) {
+        return null
+    }
+
+    return recursionGuard(this, {
+        val stub = this.stub
+        if (stub != null) {
+            val statStub = stub.childrenStubs.lastOrNull { it.psi is LuaReturnStat }
+            statStub?.psi as? LuaReturnStat
+        } else {
+            val lastChild = this.lastChild
+            var stat: LuaReturnStat? = null
+            LuaPsiTreeUtil.walkTopLevelInFile(lastChild, LuaReturnStat::class.java) {
+                stat = it
+                false
+            }
+            stat
+        }
+    })
+}
+
 private fun inferFile(file: LuaPsiFile, context: SearchContext): ITy {
     return recursionGuard(file, Computable {
         val moduleName = file.moduleName

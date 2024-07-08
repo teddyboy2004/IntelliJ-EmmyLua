@@ -18,6 +18,7 @@ package com.tang.intellij.lua.editor
 
 import com.intellij.lang.Language
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiNameIdentifierOwner
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.ui.breadcrumbs.BreadcrumbsProvider
 import com.tang.intellij.lua.lang.LuaLanguage
@@ -43,7 +44,7 @@ class LuaBreadcrumbsProvider : BreadcrumbsProvider {
             is LuaBlock -> {
                 val blockParent = element.parent
                 when (blockParent) {
-                    is LuaFuncBody ->{
+                    is LuaFuncBody -> {
                         val parent2 = blockParent.parent
                         when (parent2) {
                             is LuaClassMethodDef -> "${parent2.classMethodName.text}${parent2.paramSignature}"
@@ -53,6 +54,7 @@ class LuaBreadcrumbsProvider : BreadcrumbsProvider {
                             else -> "<?>"
                         }
                     }
+
                     is LuaIfStat -> {
                         val prevVisibleLeaf = PsiTreeUtil.prevVisibleLeaf(element)
                         when (prevVisibleLeaf?.node?.elementType) {
@@ -63,15 +65,34 @@ class LuaBreadcrumbsProvider : BreadcrumbsProvider {
 
                                 "${prefix.text} ${cutText(expr.text)} then"
                             }
+
                             else -> "if"
                         }
                     }
+
                     is LuaForAStat -> "for"
                     is LuaForBStat -> "for"
                     is LuaRepeatStat -> "repeat"
                     is LuaWhileStat -> "while"
                     else -> "<?>"
                 }
+            }
+
+            is LuaTableExpr -> {
+                var name: String? = null
+                val declaration = PsiTreeUtil.getParentOfType(element, PsiNameIdentifierOwner::class.java, LuaDeclaration::class.java)
+                if (declaration is LuaLocalDef) {
+                    name = declaration.nameList?.text
+                }else if (declaration is LuaTableField)
+                {
+                    name = declaration.name
+                }else if (declaration is LuaAssignStat) {
+                    name = declaration.varExprList.text
+                }
+                if (name == null) {
+                    name = "table"
+                }
+                return name
             }
             else -> element.text
         }
@@ -80,6 +101,7 @@ class LuaBreadcrumbsProvider : BreadcrumbsProvider {
     override fun acceptElement(element: PsiElement): Boolean {
         return when (element) {
             is LuaBlock -> true
+            is LuaTableExpr -> PsiTreeUtil.getParentOfType(element, PsiNameIdentifierOwner::class.java, LuaDeclaration::class.java) != null
             else -> false
         }
     }

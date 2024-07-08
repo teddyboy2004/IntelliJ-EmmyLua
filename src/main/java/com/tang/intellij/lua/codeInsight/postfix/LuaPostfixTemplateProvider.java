@@ -50,7 +50,8 @@ public class LuaPostfixTemplateProvider implements PostfixTemplateProvider {
                 new LuaDecreasePostfixTemplate(),
                 new LuaParPostfixTemplate(),
                 new LuaToNumberPostfixTemplate(),
-                new LuaToStringPostfixTemplate()
+                new LuaToStringPostfixTemplate(),
+                new LuaNotPostfixTemplate()
         );
     }
 

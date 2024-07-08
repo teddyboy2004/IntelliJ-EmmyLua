@@ -50,6 +50,10 @@ fun setName(owner: PsiNameIdentifierOwner, name: String): PsiElement {
     return owner
 }
 
+fun getNameIdentifier(localDef: LuaLocalDef): PsiElement {
+    return localDef.firstChild
+}
+
 fun getNameIdentifier(nameDef: LuaNameDef): PsiElement {
     return nameDef.firstChild
 }

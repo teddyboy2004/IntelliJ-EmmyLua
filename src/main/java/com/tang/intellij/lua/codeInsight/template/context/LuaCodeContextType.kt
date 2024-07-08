@@ -18,9 +18,11 @@ package com.tang.intellij.lua.codeInsight.template.context
 
 import com.intellij.codeInsight.template.TemplateActionContext
 import com.intellij.codeInsight.template.TemplateContextType
+import com.intellij.psi.PsiComment
 import com.intellij.psi.PsiWhiteSpace
+import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.psi.util.PsiUtilCore
-import com.tang.intellij.lua.comment.LuaCommentUtil
+import com.intellij.psi.util.prevLeaf
 import com.tang.intellij.lua.lang.LuaFileType
 import com.tang.intellij.lua.lang.LuaLanguage
 import com.tang.intellij.lua.psi.LuaTypes
@@ -36,10 +38,18 @@ class LuaCodeContextType : TemplateContextType("LUA_CODE") {
         val offset = templateActionContext.startOffset
         if (PsiUtilCore.getLanguageAtOffset(file, offset).isKindOf(LuaLanguage.INSTANCE)) {
             val element = file.findElementAt(offset)
-            if (element == null || element is PsiWhiteSpace || LuaCommentUtil.isComment(element)) {
+            if (element == null || element is PsiWhiteSpace || element is PsiComment) {
+                return false
+            }
+            if (PsiTreeUtil.getParentOfType(element, PsiComment::class.java)!= null) {
                 return false
             }
             if (element.node.elementType in arrayOf(LuaTypes.STRING, LuaTypes.NUMBER)) {
+                return false
+            }
+            // 避免在.或:后提示
+            val prevLeaf = element.prevLeaf()
+            if (prevLeaf != null && (prevLeaf.text == "." || prevLeaf.text == ":")) {
                 return false
             }
         }

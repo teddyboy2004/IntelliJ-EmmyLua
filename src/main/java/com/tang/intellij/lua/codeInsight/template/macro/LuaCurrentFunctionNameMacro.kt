@@ -19,21 +19,39 @@ package com.tang.intellij.lua.codeInsight.template.macro
 import com.intellij.codeInsight.lookup.LookupElement
 import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.codeInsight.template.*
+import com.intellij.codeInsight.template.impl.VariableNode
 import com.intellij.psi.PsiFile
 import com.tang.intellij.lua.codeInsight.template.context.LuaFunContextType
 import com.tang.intellij.lua.psi.*
 
 class LuaCurrentFunctionNameMacro : Macro() {
-    override fun getPresentableName() = "LuaCurrentFunctionName()"
+    override fun getPresentableName() = "LuaCurrentFunctionName(short)"
 
     override fun getName() = "LuaCurrentFunctionName"
 
+    fun removeClassName(classMethodName: String): String
+    {
+        return classMethodName.replace(Regex(".*[.:]"), "")
+    }
+
     override fun calculateResult(expressions: Array<out Expression>, context: ExpressionContext?): Result? {
+        var param:String? = null
+        if (expressions.isNotEmpty() && expressions.first() is VariableNode) {
+            val expression = expressions.first() as VariableNode
+            param = expression.name
+        }
         var e = context?.psiElementAtStartOffset
         while (e != null && e !is PsiFile) {
             e = e.parent
             when (e) {
-                is LuaClassMethodDef -> return TextResult(e.classMethodName.text)
+                is LuaClassMethodDef -> {
+                    val classMethodName = e.classMethodName.text
+                    return if (param == "true") {
+                        TextResult(removeClassName(classMethodName))
+                    } else {
+                        TextResult(classMethodName)
+                    }
+                }
                 is LuaFuncDef -> return TextResult(e.name ?: "")
                 is LuaLocalFuncDef -> return TextResult(e.name ?: "")
             }
@@ -42,12 +60,29 @@ class LuaCurrentFunctionNameMacro : Macro() {
     }
 
     override fun calculateLookupItems(params: Array<out Expression>, context: ExpressionContext?): Array<LookupElement>? {
+        var param:String? = null
+        if (params.isNotEmpty() && params.first() is VariableNode) {
+            val expression = params.first() as VariableNode
+            param = expression.name
+        }
         var e = context?.psiElementAtStartOffset
         val list = mutableListOf<LookupElement>()
         while (e != null && e !is PsiFile) {
             e = e.parent
             when (e) {
-                is LuaClassMethodDef -> list.add(LookupElementBuilder.create(e.classMethodName.text))
+                is LuaClassMethodDef -> {
+                    val classMethodName = e.classMethodName.text
+                    if (param == "true")
+                    {
+                        return arrayOf(LookupElementBuilder.create(removeClassName(classMethodName)))
+                    }
+                    else if (param == "false")
+                    {
+                        return arrayOf(LookupElementBuilder.create(classMethodName))
+                    }
+                    list.add(LookupElementBuilder.create(removeClassName(classMethodName)))
+                    list.add(LookupElementBuilder.create(classMethodName))
+                }
                 is LuaFuncDef -> e.name?.let { list.add(LookupElementBuilder.create(it)) }
                 is LuaLocalFuncDef -> e.name?.let { list.add(LookupElementBuilder.create(it)) }
             }

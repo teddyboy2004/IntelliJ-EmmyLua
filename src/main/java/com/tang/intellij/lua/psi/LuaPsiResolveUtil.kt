@@ -22,8 +22,13 @@ import com.intellij.psi.PsiManager
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.Processor
 import com.tang.intellij.lua.Constants
+import com.tang.intellij.lua.project.LuaSettings
 import com.tang.intellij.lua.psi.search.LuaShortNamesManager
 import com.tang.intellij.lua.search.SearchContext
+import com.tang.intellij.lua.stubs.index.LuaClassIndex
+import com.tang.intellij.lua.ty.TyClass
+import com.tang.intellij.lua.ty.TyFunction
+import com.tang.intellij.lua.ty.TyUnion
 
 fun resolveLocal(ref: LuaNameExpr, context: SearchContext? = null) = resolveLocal(ref.name, ref, context)
 
@@ -144,15 +149,66 @@ fun resolve(indexExpr: LuaIndexExpr, context: SearchContext): PsiElement? {
     return resolve(indexExpr, name, context)
 }
 
+fun findSuperClassMemeber(type: TyClass?, memberName:String, context: SearchContext, set:HashSet<String>): LuaClassMember?
+{
+    if (type !is TyClass || type.aliasName == null || !set.add(type.aliasName!!)) return null
+
+    val superClass = type.getSuperClass(context)
+    if (superClass is TyClass)
+    {
+        val classMember = findSuperClassMemeber(superClass as TyClass, memberName, context, set)
+        if (classMember != null)
+        {
+            return classMember
+        }
+    }
+    val findMember = type.findMember(memberName, context)
+    if (findMember != null)
+    {
+        return findMember
+    }
+    return null
+}
+
 fun resolve(indexExpr: LuaIndexExpr, idString: String, context: SearchContext): PsiElement? {
-    val type = indexExpr.guessParentType(context)
+    var type = indexExpr.guessParentType(context)
     var ret: PsiElement? = null
+
+    // 23-07-03 11:04 teddysjwu: 增加__super跳转
+    if (LuaSettings.isSuperFieldName(idString)) {
+        if (type is TyUnion) {
+            val find = indexExpr.nameIdentifier?.text?.let { LuaClassIndex.find(it, context) }
+            if (find != null) {
+                val superClass = find.superClassNameRef
+                if (superClass != null) {
+                    return LuaClassIndex.find(superClass.text, context);
+                }
+            }
+        } else {
+            val superType = type.getSuperClass(context)
+            if (superType != null) {
+                return LuaClassIndex.find(superType.displayName, context)
+            }
+        }
+    }
+
+    // 成员变量优先跳转父类, 函数还是优先跳转当前类
+    if (type is TyClass && indexExpr.guessType(context) !is TyFunction)
+    {
+        var classMember = findSuperClassMemeber(type, idString, SearchContext.get(indexExpr.project), HashSet())
+        if (classMember != null)
+        {
+            return classMember
+        }
+    }
+
     type.eachTopClass(Processor { ty ->
         ret = ty.findMember(idString, context)
         if (ret != null)
             return@Processor false
         true
     })
+
     if (ret == null) {
         val tree = LuaDeclarationTree.get(indexExpr.containingFile)
         val declaration = tree.find(indexExpr)

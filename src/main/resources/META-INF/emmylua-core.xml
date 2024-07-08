@@ -59,6 +59,8 @@
         <lang.findUsagesProvider language="Lua" implementationClass="com.tang.intellij.lua.usages.LuaFindUsagesProvider"/>
         <findUsagesHandlerFactory implementation="com.tang.intellij.lua.usages.LuaFindUsagesHandlerFactory"/>
         <usageTypeProvider implementation="com.tang.intellij.lua.usages.UsageTypeProvider"/>
+        <fileStructureGroupRuleProvider implementation="com.tang.intellij.lua.usages.UsageGroupingRuleProvider"/>
+        <usageFilteringRuleProvider implementation="com.tang.intellij.lua.usages.LuaUsageFilteringRuleProvider"/>
 
         <!--refactor-->
         <lang.refactoringSupport language="Lua" implementationClass="com.tang.intellij.lua.editor.LuaRefactoringSupportProvider"/>
@@ -73,11 +75,13 @@
         <gotoClassContributor implementation="com.tang.intellij.lua.editor.LuaClassNavigationContributor"/>
         <gotoSymbolContributor implementation="com.tang.intellij.lua.editor.LuaSymbolNavigationContributor"/>
         <breadcrumbsInfoProvider implementation="com.tang.intellij.lua.editor.LuaBreadcrumbsProvider"/>
+        <typeDeclarationProvider implementation="com.tang.intellij.lua.editor.LuaTypeDeclarationProvider"/>
 
         <!--completion-->
         <completion.contributor language="Lua" implementationClass="com.tang.intellij.lua.editor.completion.SmartCompletionContributor"/>
         <completion.contributor language="Lua" implementationClass="com.tang.intellij.lua.editor.completion.LuaDocCompletionContributor"/>
         <completion.contributor language="Lua" implementationClass="com.tang.intellij.lua.editor.completion.LuaCompletionContributor"/>
+        <statistician key="completion" implementationClass="com.tang.intellij.lua.editor.completion.LuaCompletionStatistician"/>
 
         <!--codeInsight-->
         <codeInsight.lineMarkerProvider language="Lua" implementationClass="com.tang.intellij.lua.codeInsight.LuaLineMarkerProvider"/>
@@ -118,6 +122,8 @@
         <stubIndex implementation="com.tang.intellij.lua.stubs.index.LuaShortNameIndex"/>
         <stubIndex implementation="com.tang.intellij.lua.stubs.index.LuaSuperClassIndex"/>
         <stubIndex implementation="com.tang.intellij.lua.stubs.index.LuaAliasIndex"/>
+        <stubIndex implementation="com.tang.intellij.lua.stubs.index.LuaUnknownClassMemberIndex"/>
+        <stubIndex implementation="com.tang.intellij.lua.stubs.index.LuaUnknownCallerIndex"/>
         <fileBasedIndex implementation="com.tang.intellij.lua.stubs.index.LuaStringArgIndex"/>
 
         <!--surround descriptors-->
@@ -144,10 +150,12 @@
         <liveTemplateContext contextId="LUA_CODE" implementation="com.tang.intellij.lua.codeInsight.template.context.LuaCodeContextType"/>
         <liveTemplateContext contextId="LUA_IF" baseContextId="LUA_CODE" implementation="com.tang.intellij.lua.codeInsight.template.context.LuaIfContextType"/>
         <liveTemplateContext contextId="LUA_FUNCTION" baseContextId="LUA_CODE" implementation="com.tang.intellij.lua.codeInsight.template.context.LuaFunContextType"/>
+        <liveTemplateContext contextId="LUA_COMMENT" baseContextId="LUA_CODE" implementation="com.tang.intellij.lua.codeInsight.template.context.LuaCommentContextType"/>
         <liveTemplateMacro implementation="com.tang.intellij.lua.codeInsight.template.macro.SuggestFirstLuaVarNameMacro"/>
         <liveTemplateMacro implementation="com.tang.intellij.lua.codeInsight.template.macro.SuggestLuaParametersMacro"/>
         <liveTemplateMacro implementation="com.tang.intellij.lua.codeInsight.template.macro.LuaCurrentFunctionNameMacro"/>
         <liveTemplateMacro implementation="com.tang.intellij.lua.codeInsight.template.macro.LuaFunctionParamSigMacro"/>
+        <liveTemplateMacro implementation="com.tang.intellij.lua.codeInsight.template.macro.LuaCurrentClassNameMacro"/>
 
         <!--lua settings-->
         <applicationService serviceImplementation="com.tang.intellij.lua.project.LuaSettings"/>
@@ -353,7 +361,7 @@
                 id="lua.newTutorial">
             <add-to-group group-id="NewGroup" anchor="after" relative-to-action="lua.newFile"/>
         </action>
-
+        <action class="com.intellij.openapi.actionSystem.EmptyAction" text="Lua Method Override" icon="AllIcons.General.OverridenMethod" id="UsageFiltering.LuaOverride"/>
     </actions>
 
     <extensionPoints>

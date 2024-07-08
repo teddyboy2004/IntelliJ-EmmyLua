@@ -2,6 +2,9 @@
 package com.tang.intellij.lua.psi.impl;
 
 import java.util.List;
+
+import com.intellij.openapi.util.NlsSafe;
+import com.intellij.util.IncorrectOperationException;
 import org.jetbrains.annotations.*;
 import com.intellij.lang.ASTNode;
 import com.intellij.psi.PsiElement;
@@ -62,4 +65,13 @@ public class LuaLocalDefImpl extends StubBasedPsiElementBase<LuaPlaceholderStub>
     return findChildByType(ASSIGN);
   }
 
+  @Override
+  public PsiElement setName(@NlsSafe @NotNull String name) throws IncorrectOperationException {
+    return LuaPsiImplUtilKt.setName(this, name);
+  }
+
+  @Override
+  public @Nullable PsiElement getNameIdentifier() {
+    return LuaPsiImplUtilKt.getNameIdentifier(this);
+  }
 }

@@ -17,20 +17,23 @@
 package com.tang.intellij.lua.editor
 
 import com.intellij.icons.AllIcons
-import com.intellij.ide.IdeBundle
 import com.intellij.ide.structureView.*
-import com.intellij.ide.util.treeView.smartTree.ActionPresentation
-import com.intellij.ide.util.treeView.smartTree.ActionPresentationData
-import com.intellij.ide.util.treeView.smartTree.Sorter
-import com.intellij.ide.util.treeView.smartTree.SorterUtil
+import com.intellij.ide.util.InheritedMembersNodeProvider
+import com.intellij.ide.util.treeView.smartTree.*
 import com.intellij.lang.PsiStructureViewFactory
 import com.intellij.openapi.editor.Editor
 import com.intellij.psi.PsiFile
 import com.tang.intellij.lua.LuaBundle
-import com.tang.intellij.lua.editor.structure.LuaClassFieldElement
-import com.tang.intellij.lua.editor.structure.LuaFileElement
-import com.tang.intellij.lua.editor.structure.LuaFuncElement
+import com.tang.intellij.lua.comment.psi.LuaDocTagClass
+import com.tang.intellij.lua.editor.structure.*
+import com.tang.intellij.lua.psi.LuaClassMethodDef
 import com.tang.intellij.lua.psi.LuaPsiFile
+import com.tang.intellij.lua.psi.LuaTypeGuessable
+import com.tang.intellij.lua.search.SearchContext
+import com.tang.intellij.lua.stubs.index.LuaClassMemberIndex
+import com.tang.intellij.lua.ty.ITy
+import com.tang.intellij.lua.ty.TyClass
+import com.tang.intellij.lua.ty.TyUnion
 
 /**
  * Structure View
@@ -58,6 +61,14 @@ class LuaStructureViewFactory : PsiStructureViewFactory {
 
         override fun isAlwaysLeaf(structureViewTreeElement: StructureViewTreeElement): Boolean {
             return false
+        }
+
+        private val NODE_PROVIDERS: Collection<NodeProvider<TreeElement>> = listOf(
+            LuaInheritedMembersNodeProvider(),
+        )
+
+        override fun getNodeProviders(): Collection<NodeProvider<TreeElement>> {
+            return NODE_PROVIDERS
         }
     }
 
@@ -89,4 +100,84 @@ class LuaStructureViewFactory : PsiStructureViewFactory {
             return "Alpha Sorter"
         }
     }
+
+    inner class LuaInheritedMembersNodeProvider : InheritedMembersNodeProvider<TreeElement>() {
+        override fun provideNodes(node: TreeElement): Collection<TreeElement> {
+            if (node is LuaVarElement && node.parent == null && node.children.isNotEmpty()) {
+                var context: SearchContext? = null
+                val element = node.element
+                var type: ITy? = null
+                if (element is LuaTypeGuessable) {
+                    context = SearchContext.get(element.project)
+                    type = element.guessType(context)
+                } else if (element is LuaDocTagClass) {
+                    context = SearchContext.get(element.project)
+                    type = element.type
+                }
+
+                val inherited = mutableListOf<TreeElement>()
+
+                if (context != null && type != null) {
+                    val containNames = hashSetOf<String>()
+                    val types = mutableListOf<TyClass>()
+                    if (type is TyUnion) {
+                        type.getChildTypes().forEach {
+                            if (it is TyClass) {
+                                types.add(it)
+                            }
+                        }
+                    } else if (type is TyClass) {
+                        types.add(type)
+                    }
+
+                    types.forEach {
+                        addAllChildren(node, containNames)
+                        addInheritedMembers(it, containNames, inherited, context)
+                    }
+                }
+
+                return inherited
+            }
+            return emptyList()
+        }
+
+        private fun addAllChildren(node: LuaTreeElement, containNames: HashSet<String>) {
+            if (node.children.isEmpty()) {
+                return
+            }
+            node.children.forEach { treeElement ->
+                containNames.add((treeElement as LuaTreeElement).name)
+                addAllChildren(treeElement, containNames)
+            }
+        }
+
+        private fun addInheritedMembers(
+            clazz: TyClass,
+            containNames: HashSet<String>,
+            inherited: MutableList<TreeElement>,
+            context: SearchContext
+        ) {
+            val members = LuaClassMemberIndex.instance.get(clazz.hashCode(), context.project, context.scope)
+
+            members.forEach { member ->
+                val memberName = member.name
+                if (memberName != null) {
+                    if (containNames.add(memberName)) {
+                        val item: LuaTreeElement = if (member is LuaClassMethodDef) {
+                            LuaClassMethodElement(member, memberName, member.paramSignature, member.visibility)
+                        } else {
+                            LuaClassFieldElement(member, memberName)
+                        }
+                        item.inherited = true
+                        inherited.add(item)
+                    }
+                }
+            }
+            val superClass = clazz.getSuperClass(context)
+            if (superClass is TyClass) {
+                addInheritedMembers(superClass, containNames, inherited, context)
+            }
+        }
+    }
+
 }

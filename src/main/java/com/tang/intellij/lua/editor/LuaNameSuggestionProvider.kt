@@ -23,8 +23,10 @@ import com.intellij.psi.codeStyle.SuggestedNameInfo
 import com.intellij.psi.search.searches.ReferencesSearch
 import com.intellij.refactoring.rename.NameSuggestionProvider
 import com.intellij.util.Processor
+import com.tang.intellij.lua.Constants
 import com.tang.intellij.lua.lang.LuaLanguage
 import com.tang.intellij.lua.psi.*
+import com.tang.intellij.lua.refactoring.LuaRefactoringUtil
 import com.tang.intellij.lua.search.SearchContext
 import com.tang.intellij.lua.ty.*
 
@@ -35,6 +37,35 @@ import com.tang.intellij.lua.ty.*
 class LuaNameSuggestionProvider : NameSuggestionProvider {
 
     companion object {
+        var keywords: HashSet<String>? = null
+
+        private fun initKeywords(): HashSet<String> {
+            val set = HashSet<String>()
+            LuaTypes::class.java.fields.forEach { field ->
+                val data = field.get(null)
+                if (data is LuaTokenType && LuaRefactoringUtil.isLuaIdentifier(data.debugName)) {
+                    set.add(data.debugName)
+                }
+            }
+            Constants::class.java.fields.forEach { field ->
+                val data = field.get(null)
+                if (data is String && LuaRefactoringUtil.isLuaIdentifier(data)) {
+                    set.add(data)
+                }
+            }
+            return set
+        }
+
+        fun isKeyword(string: String?): Boolean {
+            if (keywords == null) {
+                initKeywords()
+            }
+            if (keywords != null) {
+                return keywords!!.contains(string)
+            }
+            return false
+        }
+
         fun fixName(oriName: String): String {
             return oriName.replace(".", "")
         }
