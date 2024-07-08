@@ -272,10 +272,6 @@ class LuaSettings : PersistentStateComponent<LuaSettings> {
 
         private fun getTypeStr(cfg: LuaCustomTypeConfig, luaCallExpr: LuaCallExpr, context: SearchContext): String? {
             val paramIndex = cfg.ParamIndex
-            if (cfg.ExtraParam.isBlank())
-            {
-                return null
-            }
             val type = luaCallExpr.inferParam(paramIndex, context)
             var typeStr: String? = null
             if (type is TyPrimitiveLiteral && type.primitiveKind == TyPrimitiveKind.String) {
@@ -283,7 +279,7 @@ class LuaSettings : PersistentStateComponent<LuaSettings> {
             }
 
             // 支持RequireField需要在table中查找的情况
-            if (cfg.HandleType == LuaCustomHandleType.RequireField) {
+            if (cfg.HandleType == LuaCustomHandleType.RequireField && cfg.ExtraParam.isNotBlank()) {
                 type.each {
                     if (it is TyTable) {
                         it.findMember(cfg.ExtraParam, context)?.also { member ->
