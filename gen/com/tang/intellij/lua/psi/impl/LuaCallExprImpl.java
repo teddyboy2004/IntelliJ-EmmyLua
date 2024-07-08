@@ -2,6 +2,8 @@
 package com.tang.intellij.lua.psi.impl;
 
 import java.util.List;
+
+import com.tang.intellij.lua.project.LuaSettings;
 import org.jetbrains.annotations.*;
 import com.intellij.lang.ASTNode;
 import com.intellij.psi.PsiElement;
@@ -55,6 +57,15 @@ public class LuaCallExprImpl extends LuaCallExprMixin implements LuaCallExpr {
   @NotNull
   public ITy guessParentType(@NotNull SearchContext context) {
     return LuaPsiImplUtilKt.guessParentType(this, context);
+  }
+
+  @Override
+  public ITy guessType(SearchContext context) {
+    ITy customType = LuaSettings.Companion.getCustomType(this, context);
+    if (customType != null) {
+      return customType;
+    }
+    return super.guessType(context);
   }
 
   @Override

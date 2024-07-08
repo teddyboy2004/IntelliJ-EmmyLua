@@ -22,6 +22,8 @@ import com.intellij.psi.stubs.StubInputStream
 import com.intellij.psi.stubs.StubOutputStream
 import com.intellij.util.BitUtil
 import com.intellij.util.io.StringRef
+import com.tang.intellij.lua.Constants
+import com.tang.intellij.lua.editor.LuaNameSuggestionProvider
 import com.tang.intellij.lua.psi.*
 import com.tang.intellij.lua.psi.impl.LuaIndexExprImpl
 import com.tang.intellij.lua.search.SearchContext
@@ -125,6 +127,23 @@ class LuaIndexExprType : LuaStubElementType<LuaIndexExprStub, LuaIndexExpr>("IND
             }
 
             indexSink.occurrence(StubKeys.SHORT_NAME, fieldName)
+        }else if (indexStub.parentStub.stubType == LuaTypes.CALL_EXPR && fieldName != null) {
+            var callName: String? = ""
+            if (indexStub.childrenStubs.isNotEmpty()) {
+                val element = indexStub.childrenStubs[0]
+                if (element is LuaNameExprStub) {
+                    callName = element.name
+                } else if (element is LuaIndexExprStub) {
+                    callName = element.name
+                }
+                if (callName != null) {
+                    callName = callName.replace(Regex("_.*"), "")
+                }
+            }
+            // 太少的名字没有太多意义，循环中的v，k等
+            if (callName != null && !LuaNameSuggestionProvider.isKeyword(callName) && callName.length > 2) {
+                indexSink.occurrence(StubKeys.UNKNOWN_MEMBER, callName.hashCode())
+            }
         }
     }
 

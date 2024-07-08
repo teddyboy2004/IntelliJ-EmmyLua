@@ -17,7 +17,11 @@
 package com.tang.intellij.lua.documentation
 
 import com.intellij.codeInsight.documentation.DocumentationManagerUtil
+import com.intellij.psi.PsiComment
+import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
+import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.refactoring.suggested.startOffset
 import com.tang.intellij.lua.comment.psi.*
 import com.tang.intellij.lua.comment.psi.api.LuaComment
 import com.tang.intellij.lua.ty.IFunSignature
@@ -147,7 +151,9 @@ fun renderClassDef(sb: StringBuilder, tag: LuaDocTagClass, tyRenderer: ITyRender
     val cls = tag.type
     sb.append("<pre>")
     sb.append("class ")
+    tyRenderer.renderDetail = true
     sb.wrapTag("b") { tyRenderer.render(cls, sb) }
+    tyRenderer.renderDetail = false
     val superClassName = cls.superClassName
     if (superClassName != null) {
         sb.append(" : ")

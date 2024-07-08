@@ -16,6 +16,7 @@
 
 package com.tang.intellij.lua.editor.completion
 
+import com.intellij.codeInsight.completion.PrioritizedLookupElement
 import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.psi.tree.TokenSet
 import com.intellij.util.Processor
@@ -24,6 +25,7 @@ import com.tang.intellij.lua.lang.LuaIcons
 import com.tang.intellij.lua.lang.LuaParserDefinition
 import com.tang.intellij.lua.psi.*
 import com.tang.intellij.lua.search.SearchContext
+import com.tang.intellij.lua.stubs.index.LuaUnknownCallerIndex
 import com.tang.intellij.lua.ty.*
 
 /**
@@ -126,6 +128,21 @@ class LocalAndGlobalCompletionProvider(private val mask: Int) : ClassMemberCompl
                 completionResultSet.addElement(LookupElementBuilder.create(primitiveToken))
             }
             completionResultSet.addElement(LookupElementBuilder.create(Constants.WORD_SELF))
+        }
+        
+        // 添加未知调用名称
+        if (has(GLOBAL_VAR)) {
+            LuaUnknownCallerIndex.instance.getAllKeys(project).forEach {
+                val name = it
+                if (name.length > 2 && session.addWord(name)) {
+                    val item = LookupElementBuilder.create(it)
+                        .withIcon(LuaIcons.CLASS_METHOD)
+                        .withTypeText("$name?", true)
+                    completionResultSet.addElement(
+                        PrioritizedLookupElement.withPriority(item, -0.5)
+                    )
+                }
+            }
         }
     }
 

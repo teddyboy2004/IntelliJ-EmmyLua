@@ -21,12 +21,16 @@ import com.intellij.codeInsight.completion.CompletionResultSet
 import com.intellij.codeInsight.completion.PrefixMatcher
 import com.intellij.codeInsight.completion.PrioritizedLookupElement
 import com.intellij.codeInsight.lookup.LookupElement
+import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
 import com.intellij.util.Processor
+import com.tang.intellij.lua.Constants
 import com.tang.intellij.lua.lang.LuaIcons
+import com.tang.intellij.lua.project.LuaSettings
 import com.tang.intellij.lua.psi.*
 import com.tang.intellij.lua.search.SearchContext
+import com.tang.intellij.lua.stubs.index.LuaUnknownClassMemberIndex
 import com.tang.intellij.lua.ty.*
 
 enum class MemberCompletionMode {
@@ -43,6 +47,14 @@ open class ClassMemberCompletionProvider : LuaCompletionProvider() {
     protected abstract class HandlerProcessor {
         open fun processLookupString(lookupString: String, member: LuaClassMember, memberTy: ITy?): String = lookupString
         abstract fun process(element: LuaLookupElement, member: LuaClassMember, memberTy: ITy?): LookupElement
+    }
+
+    internal class OverrideInsertHandler() : ArgsInsertHandler() {
+        override val isVarargs: Boolean
+            get() = true
+        override fun getParams(): Array<LuaParamInfo> {
+            return emptyArray<LuaParamInfo>()
+        }
     }
 
     override fun addCompletions(session: CompletionSession) {
@@ -87,6 +99,39 @@ open class ClassMemberCompletionProvider : LuaCompletionProvider() {
                         }
                     }
                     true
+                }
+            }
+
+            // 显示未知调用
+            if (LuaSettings.instance.isShowUnknownMethod) {
+                var show = true
+                if (indexExpr.name == Constants.WORD_SELF) {
+                    show = false
+                }
+                val last = indexExpr.exprList.last()
+                if (show) {
+                    var prefix = last.name ?: ""
+                    if (prefix.isNotBlank()) {
+                        prefix = prefix.replace(Regex("_.*"), "")
+                        val allKeys = LuaUnknownClassMemberIndex.find(prefix.hashCode(), context)
+                        val matchKeySet = HashSet<String>()
+                        allKeys.forEach { indexExpr ->
+                            val functionName = indexExpr.name ?: return@forEach
+                            if (!session.addWord(functionName)){
+                                return@forEach
+                            }
+                            matchKeySet.add(functionName)
+                        }
+                        matchKeySet.forEach() {
+                            val item = LookupElementBuilder.create(it)
+                                .withIcon(LuaIcons.CLASS_METHOD)
+                                .withInsertHandler(OverrideInsertHandler())
+                                .withTypeText("$prefix?", true)
+                            completionResultSet.addElement(
+                                PrioritizedLookupElement.withPriority(item, -0.5)
+                            )
+                        }
+                    }
                 }
             }
         }

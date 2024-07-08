@@ -242,12 +242,13 @@ abstract class TyClass(override val className: String,
 }
 
 class TyPsiDocClass(tagClass: LuaDocTagClass) : TyClass(tagClass.name) {
-
+    var project: Project
     init {
         val supperRef = tagClass.superClassNameRef
         if (supperRef != null)
             superClassName = supperRef.text
         aliasName = tagClass.aliasName
+        project = tagClass.project
     }
 
     override fun doLazyInit(searchContext: SearchContext) {}

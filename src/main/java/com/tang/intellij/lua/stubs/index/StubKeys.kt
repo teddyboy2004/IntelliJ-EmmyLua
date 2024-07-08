@@ -21,6 +21,8 @@ import com.intellij.psi.stubs.StubIndexKey
 import com.tang.intellij.lua.comment.psi.LuaDocTagAlias
 import com.tang.intellij.lua.comment.psi.LuaDocTagClass
 import com.tang.intellij.lua.psi.LuaClassMember
+import com.tang.intellij.lua.psi.LuaIndexExpr
+import com.tang.intellij.lua.psi.LuaNameExpr
 
 object StubKeys {
     val CLASS_MEMBER = StubIndexKey.createIndexKey<Int, LuaClassMember>("lua.index.class.member")
@@ -28,4 +30,6 @@ object StubKeys {
     val CLASS = StubIndexKey.createIndexKey<String, LuaDocTagClass>("lua.index.class")
     val SUPER_CLASS = StubIndexKey.createIndexKey<String, LuaDocTagClass>("lua.index.super_class")
     val ALIAS = StubIndexKey.createIndexKey<String, LuaDocTagAlias>("lua.index.alias")
+    val UNKNOWN_MEMBER = StubIndexKey.createIndexKey<Int, LuaIndexExpr>("lua.index.unknown_class")
+    val UNKNOWN_CALLER = StubIndexKey.createIndexKey<String, LuaNameExpr>("lua.index.unknown_caller")
 }
