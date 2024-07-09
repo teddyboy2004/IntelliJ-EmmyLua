@@ -82,7 +82,9 @@ class LuaDocumentationProvider : AbstractDocumentationProvider(), DocumentationP
                 renderDefinition(sb) {
                     sb.append("local <b>${element.name}</b>:")
                     val ty = element.guessType(SearchContext.get(element.project))
+                    tyRenderer.renderDetail = true
                     renderTy(sb, ty, tyRenderer)
+                    tyRenderer.renderDetail = false
                 }
 
                 val owner = PsiTreeUtil.getParentOfType(element, LuaCommentOwner::class.java)
@@ -120,7 +122,9 @@ class LuaDocumentationProvider : AbstractDocumentationProvider(), DocumentationP
                         }
                         else -> {
                             append(".${classMember.name}:")
+                            tyRenderer.renderDetail = true
                             renderTy(sb, ty, tyRenderer)
+                            tyRenderer.renderDetail = false
                         }
                     }
                 }

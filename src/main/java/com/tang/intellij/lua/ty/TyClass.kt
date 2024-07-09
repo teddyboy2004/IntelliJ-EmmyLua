@@ -326,10 +326,11 @@ class TyTable(val table: LuaTableExpr) : TyClass(getTableTypeName(table)) {
     }
 
     override fun processMembers(context: SearchContext, processor: (ITyClass, LuaClassMember) -> Unit, deep: Boolean) {
+        val chain = getMemberChain(context)
         for (field in table.tableFieldList) {
-            processor(this, field)
+            chain.add(field)
         }
-        super.processMembers(context, processor, deep)
+        chain.process(deep, processor)
     }
 
     override fun toString(): String = displayName
