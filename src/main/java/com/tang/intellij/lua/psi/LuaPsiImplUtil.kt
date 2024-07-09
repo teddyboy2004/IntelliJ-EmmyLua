@@ -494,15 +494,6 @@ fun getName(tableField: LuaTableField): String? {
     val idExpr = tableField.idExpr
     if (idExpr is LuaLiteralExpr && idExpr.kind == LuaLiteralKind.String)
         return LuaString.getContent(idExpr.text).value
-    if (idExpr is LuaTypeGuessable) {
-        val context = SearchContext.get(idExpr.project)
-        if (!context.isDumb) {
-            val type = idExpr.guessType(context)
-            if (type is TyPrimitiveLiteral) {
-                return type.displayName
-            }
-        }
-    }
     return null
 }
 

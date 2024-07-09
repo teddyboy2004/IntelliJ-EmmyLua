@@ -175,6 +175,7 @@ open class TyRenderer : TyVisitor(), ITyRenderer {
         }
         val context = SearchContext.get(proj)
         val list = mutableListOf<String>()
+        val members = hashSetOf<LuaClassMember>()
         clazz.processMembers(context) { owner, member ->
             if (list.size >= MaxRenderedTableMembers) {
                 return@processMembers
@@ -183,7 +184,17 @@ open class TyRenderer : TyVisitor(), ITyRenderer {
             {
                 return@processMembers
             }
-            val name = member.name
+            if (!members.add(member))
+            {
+                return@processMembers
+            }
+            var name = member.name
+            if (name == null && member is LuaTableField && member.idExpr is LuaTypeGuessable) {
+                val type = member.idExpr!!.guessType(context)
+                if (type is TyPrimitiveLiteral) {
+                    name = type.displayName
+                }
+            }
             val indexTy = if (name == null) member.guessType(context) else null
             val key = name ?: "[${render(indexTy ?: Ty.VOID)}]"
             member.guessType(context).let { fieldTy ->
