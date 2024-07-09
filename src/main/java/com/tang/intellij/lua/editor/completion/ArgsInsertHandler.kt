@@ -29,7 +29,10 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.TokenType
 import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.psi.util.elementType
+import com.intellij.psi.util.prevLeaf
 import com.tang.intellij.lua.project.LuaSettings
+import com.tang.intellij.lua.psi.LuaClassMethodDef
 import com.tang.intellij.lua.psi.LuaExpr
 import com.tang.intellij.lua.psi.LuaParamInfo
 import com.tang.intellij.lua.psi.LuaTypes
@@ -41,6 +44,8 @@ abstract class ArgsInsertHandler : InsertHandler<LookupElement> {
     protected open val isVarargs = false
 
     protected open val autoInsertParameters: Boolean = LuaSettings.instance.autoInsertParameters
+
+    private var removeFirstSelf = false
 
     private var mask = -1
 
@@ -74,6 +79,22 @@ abstract class ArgsInsertHandler : InsertHandler<LookupElement> {
                     needAppendPar = prevIteratorEnd != insertionContext.tailOffset
                 }
             }
+
+            // 增加判断函数是否使用:，并且前面使用点自动更换成:, 回车不替换
+            if (insertionContext.completionChar != '\n' && lookupElement.psiElement is LuaClassMethodDef && (lookupElement.psiElement as LuaClassMethodDef).classMethodName.colon != null) {
+                val isSuperCall = element.prevSibling?.prevLeaf()?.text == "__super"
+                val preElementType = element.prevSibling?.elementType
+                removeFirstSelf = preElementType == LuaTypes.COLON
+                // superCall不使用:，自动替换为.
+                if (isSuperCall && preElementType == LuaTypes.COLON) {
+                    editor.document.replaceString(startOffset - 1, startOffset, ".")
+                } else if (!isSuperCall && preElementType == LuaTypes.DOT) // 自动替换.为:
+                {
+                    editor.document.replaceString(startOffset - 1, startOffset, ":")
+                    removeFirstSelf = true
+                }
+
+            }
         }
 
         if (needAppendPar) {
@@ -94,21 +115,30 @@ abstract class ArgsInsertHandler : InsertHandler<LookupElement> {
     }
 
     protected open fun appendSignature(insertionContext: InsertionContext, editor: Editor, element: PsiElement?) {
-        if (autoInsertParameters) {
-            val paramNameDefList = getParams()
+        val params = getParams()
+        if (autoInsertParameters && insertionContext.completionChar != '\n') {
             val manager = TemplateManager.getInstance(insertionContext.project)
-            val template = createTemplate(manager, paramNameDefList)
+            val template = createTemplate(manager, params)
             editor.caretModel.moveToOffset(insertionContext.selectionEndOffset)
             manager.startTemplate(editor, template)
         } else {
             editor.document.insertString(insertionContext.selectionEndOffset, "()")
-            if (getParams().isEmpty() && !isVarargs) {
+            if (params.isEmpty() && !isVarargs) {
                 editor.caretModel.moveToOffset(insertionContext.selectionEndOffset)
             } else {
                 editor.caretModel.moveToOffset(insertionContext.selectionEndOffset - 1)
                 AutoPopupController.getInstance(insertionContext.project).autoPopupParameterInfo(editor, element)
+                val manager = TemplateManager.getInstance(insertionContext.project)
+                if (params.isNotEmpty()) {
+                    if (params.size > 1 || params.first().name != "self" || !removeFirstSelf) {
+                        val template = manager.createTemplate("", "")
+                        template.addVariable(TextExpression(""), true)
+                        manager.startTemplate(editor, template)
+                    }
+                }
             }
         }
+        removeFirstSelf = false
     }
 
     private fun findWarpExpr(file: PsiFile, offset: Int): LuaExpr? {
@@ -130,11 +160,13 @@ abstract class ArgsInsertHandler : InsertHandler<LookupElement> {
 
         for (i in paramNameDefList.indices) {
             if (mask and (1 shl i) == 0) continue
-
-            val paramNameDef = paramNameDefList[i]
+            val paramDef = paramNameDefList[i]
+            if (isFirst && paramDef.name == "self" && removeFirstSelf) {
+                continue
+            }
             if (!isFirst)
                 template.addTextSegment(", ")
-            template.addVariable(paramNameDef.name, TextExpression(paramNameDef.name), TextExpression(paramNameDef.name), true)
+            template.addVariable(paramDef.name, TextExpression(paramDef.name), TextExpression(paramDef.name), true)
             isFirst = false
         }
         template.addTextSegment(")")

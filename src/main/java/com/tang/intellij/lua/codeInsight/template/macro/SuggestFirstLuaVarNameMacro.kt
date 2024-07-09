@@ -207,6 +207,16 @@ class SuggestFirstLuaVarNameMacro : Macro() {
         // 根据类型判断文件名
         fun getElementSuggestNameByType(ity: ITy?, context: SearchContext): String? {
             var type = ity
+            if (type is TyUnion)
+            {
+                type.getChildTypes().forEach(){
+                    val name = getElementSuggestNameByType(it, context)
+                    if (name != null)
+                    {
+                        return name
+                    }
+                }
+            }
             if (type is TyArray) {
                 val name = getElementSuggestNameByType(type.base, context)
                 if (name != null)
@@ -214,7 +224,7 @@ class SuggestFirstLuaVarNameMacro : Macro() {
             }
             if (type is TyClass) {
                 val className = type.className
-                if (!className.startsWith("table@")) {
+                if (!className.contains("@")) {
                     return className.replace(Regex(".*\\."), "")
                 } else {
                     val superType = type.getSuperClass(context)
@@ -228,9 +238,9 @@ class SuggestFirstLuaVarNameMacro : Macro() {
                 val declaration = PsiTreeUtil.getParentOfType(psi, LuaDeclaration::class.java)
                 if (declaration != null) {
                     if (declaration is LuaAssignStat) {
-                        return PsiTreeUtil.getDeepestLast(declaration.varExprList.lastChild).text
+                        return declaration.varExprList.text
                     } else if (declaration is LuaLocalDef) {
-                        return PsiTreeUtil.getDeepestLast(declaration.exprList!!.lastChild).text
+                        return declaration.nameList?.text
                     }
                 }
             }
