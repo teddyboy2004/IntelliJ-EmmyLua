@@ -151,9 +151,7 @@ fun renderClassDef(sb: StringBuilder, tag: LuaDocTagClass, tyRenderer: ITyRender
     val cls = tag.type
     sb.append("<pre>")
     sb.append("class ")
-    tyRenderer.renderDetail = true
     sb.wrapTag("b") { tyRenderer.render(cls, sb) }
-    tyRenderer.renderDetail = false
     val superClassName = cls.superClassName
     if (superClassName != null) {
         sb.append(" : ")

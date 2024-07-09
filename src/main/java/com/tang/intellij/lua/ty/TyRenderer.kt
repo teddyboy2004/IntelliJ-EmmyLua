@@ -27,9 +27,7 @@ import com.tang.intellij.lua.Constants
 import com.tang.intellij.lua.comment.psi.LuaDocCommentString
 import com.tang.intellij.lua.comment.psi.LuaDocTagField
 import com.tang.intellij.lua.comment.psi.api.LuaComment
-import com.tang.intellij.lua.psi.LuaCommentOwner
-import com.tang.intellij.lua.psi.LuaDeclaration
-import com.tang.intellij.lua.psi.LuaPsiTreeUtil
+import com.tang.intellij.lua.psi.*
 import com.tang.intellij.lua.search.SearchContext
 
 interface ITyRenderer {
@@ -72,9 +70,11 @@ open class TyRenderer : TyVisitor(), ITyRenderer {
                         ty.params.forEach { list.add(renderType(it.displayName)) }
                         sb.append("${renderType(ty.base.displayName)}&lt;${list.joinToString(", ")}&gt;")
                     }
+
                     is TyParameter -> {
 
                     }
+
                     is TyStringLiteral -> sb.append(ty.toString())
                     is TyPrimitiveLiteral -> sb.append(renderType(ty.displayName))
                     else -> {
@@ -126,14 +126,15 @@ open class TyRenderer : TyVisitor(), ITyRenderer {
         return when {
             clazz is TyDocTable -> {
                 val list = mutableListOf<String>()
-                clazz.table.tableFieldList.forEach { it.ty?.let { ty-> list.add("${it.name}: ${render(ty.getType())}") } }
+                clazz.table.tableFieldList.forEach { it.ty?.let { ty -> list.add("${it.name}: ${render(ty.getType())}") } }
                 "{ ${list.joinToString(", ")} }"
             }
+
             clazz is TyClass && renderDetail -> renderClassMember(clazz)
             clazz.hasFlag(TyFlags.ANONYMOUS_TABLE) -> {
                 var type = Constants.WORD_TABLE
                 if (clazz is TyTable) {
-                    PsiTreeUtil.getParentOfType(clazz.table, LuaDeclaration::class.java).let {declaration ->
+                    PsiTreeUtil.getParentOfType(clazz.table, LuaDeclaration::class.java).let { declaration ->
                         val psiNameIdentifierOwner = PsiTreeUtil.findChildOfType(declaration, PsiNameIdentifierOwner::class.java)
                         if (psiNameIdentifierOwner != null && psiNameIdentifierOwner.name != null) {
                             type = psiNameIdentifierOwner.name!!
@@ -142,6 +143,7 @@ open class TyRenderer : TyVisitor(), ITyRenderer {
                 }
                 renderType(type)
             }
+
             clazz.isAnonymous -> "[local ${clazz.varName}]"
             clazz.isGlobal -> "[global ${clazz.varName}]"
             else -> renderType(clazz.className)
@@ -153,22 +155,20 @@ open class TyRenderer : TyVisitor(), ITyRenderer {
     }
 
     // 优化类成员提示，增加显示注释
-    fun renderClassMember(clazz: TyClass?): String {
-        if (clazz == null)
-        {
+    private fun renderClassMember(clazz: TyClass?): String {
+        if (clazz == null) {
             return ""
         }
         var proj: Project? = null
         if (clazz is TyTable) {
             proj = clazz.table.project
-        }
-        else if(clazz is TyPsiDocClass)
-        {
+        } else if (clazz is TyPsiDocClass) {
             proj = clazz.project
         }
         var className = ""
-        if (!clazz.className.contains("@")) {
-            className = clazz.className
+        val clazzName = clazz.className
+        if (!clazzName.contains("@") && !clazzName.contains("$")) {
+            className = clazzName
         }
         if (proj == null) {
             return className
@@ -179,66 +179,53 @@ open class TyRenderer : TyVisitor(), ITyRenderer {
             if (list.size >= MaxRenderedTableMembers) {
                 return@processMembers
             }
+            if (member is LuaClassMethod)
+            {
+                return@processMembers
+            }
             val name = member.name
             val indexTy = if (name == null) member.guessType(context) else null
             val key = name ?: "[${render(indexTy ?: Ty.VOID)}]"
             member.guessType(context).let { fieldTy ->
                 val renderedFieldTy = render(fieldTy ?: Ty.UNKNOWN)
 
-                var comment = StringBuilder()
+                val comment = StringBuilder()
                 if (member is LuaCommentOwner) {
                     if (member.comment != null) {
-                        var child = member.comment
+                        val child = member.comment
                         val string = PsiTreeUtil.findChildOfType(child, LuaDocCommentString::class.java)
-                        if (string!= null && string.text.isNotBlank())
-                        {
+                        if (string != null && string.text.isNotBlank()) {
                             comment.append("---")
                             comment.append(string.text)
                         }
                     } else {
-                        val doc = PsiDocumentManager.getInstance(context.project).getDocument((member as LuaCommentOwner).containingFile)
-                        if (doc != null) {
-                            val lineNumber = doc.getLineNumber(member.startOffset)
-                            var current: PsiElement? = PsiTreeUtil.nextVisibleLeaf(member)
-                            // 支持同一行的--注释
-                            while (current != null && lineNumber == doc.getLineNumber(current.startOffset))
-                            {
-                                if (current is PsiComment && current !is LuaComment) {
-                                    // 同一行的注释
-                                    comment.append(current.text)
-                                    break
-                                }
-                                current = PsiTreeUtil.nextVisibleLeaf(current)
-                            }
-                        }
+                        addSingleLineComment(member, comment)
                     }
                 }
-                if(member is LuaDocTagField)
-                {
+                if (member is LuaDocTagField) {
                     val string = member.commentString
-                    if (string!= null && string.text.isNotBlank())
-                    {
+                    if (string != null && string.text.isNotBlank()) {
                         comment.append(string.text.replace(Regex("^@"), ""))
                     }
                 }
-                if (comment.isEmpty())
-                {
+                if (comment.isEmpty()) {
                     comment.append(",")
-                }
-                else
-                {
+                } else {
                     comment.insert(0, ", ")
                 }
-                list.add(if (fieldTy is TyFunction) {
-                    "${key}: (${renderedFieldTy})$comment"
-                } else {
-                    "${key}: ${renderedFieldTy}$comment"
-                })
+                list.add(
+                    if (fieldTy is TyFunction) {
+                        "${key}: (${renderedFieldTy})$comment"
+                    } else {
+                        "${key}: ${renderedFieldTy}$comment"
+                    }
+                )
             }
         }
 
         return "$className ${joinSingleLineOrWrap(list, MaxSingleLineTableMembers, " ", "{", "}")}"
     }
+
 
     private val regex = Regex("<.*?>")
 
@@ -250,8 +237,7 @@ open class TyRenderer : TyVisitor(), ITyRenderer {
             for (s in list) {
                 // 过长也换行显示
                 val replace = s.replace(regex, "")
-                if(replace.length > 40)
-                {
+                if (replace.length > 40) {
                     wrapLine = true
                     break;
                 }
@@ -271,5 +257,22 @@ open class TyRenderer : TyVisitor(), ITyRenderer {
 
     companion object {
         val SIMPLE: ITyRenderer = TyRenderer()
+        fun addSingleLineComment(member: LuaCommentOwner, comment: StringBuilder)
+        {
+            val doc = PsiDocumentManager.getInstance(member.project).getDocument(member.containingFile)
+            if (doc != null) {
+                val lineNumber = doc.getLineNumber(member.startOffset)
+                var current: PsiElement? = PsiTreeUtil.nextVisibleLeaf(member)
+                // 支持同一行的--注释
+                while (current != null && lineNumber == doc.getLineNumber(current.startOffset)) {
+                    if (current is PsiComment && current !is LuaComment) {
+                        // 同一行的注释
+                        comment.append(current.text)
+                        break
+                    }
+                    current = PsiTreeUtil.nextVisibleLeaf(current)
+                }
+            }
+        }
     }
 }

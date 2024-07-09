@@ -138,7 +138,9 @@ class LuaDocumentationProvider : AbstractDocumentationProvider(), DocumentationP
                             is TyFunction -> renderSignature(sb, ty.mainSignature, tyRenderer)
                             else -> {
                                 append(":")
+                                tyRenderer.renderDetail = true
                                 renderTy(sb, ty, tyRenderer)
+                                tyRenderer.renderDetail = false
                             }
                         }
                     }
@@ -154,22 +156,7 @@ class LuaDocumentationProvider : AbstractDocumentationProvider(), DocumentationP
             is LuaCommentOwner -> {
                 renderComment(sb, classMember.comment, tyRenderer)
                 if (classMember.comment == null) {
-                    val member = classMember as LuaClassMember
-                    val doc = PsiDocumentManager.getInstance(context.project).getDocument(member.containingFile)
-                    doc?.let {
-                        val lineNumber = doc.getLineNumber(member.textOffset)
-                        var current: PsiElement? = PsiTreeUtil.nextVisibleLeaf(member)
-                        // 支持同一行的--注释
-                        while (current != null && lineNumber == doc.getLineNumber(current.textOffset))
-                        {
-                            if (current is PsiComment && current !is LuaComment) {
-                                // 同一行的注释
-                                sb.append(current.text)
-                                break
-                            }
-                            current = PsiTreeUtil.nextVisibleLeaf(current)
-                        }
-                    }
+                    TyRenderer.addSingleLineComment(classMember, sb)
                 }
             }
             is LuaDocTagField -> renderCommentString("  ", null, sb, classMember.commentString)
