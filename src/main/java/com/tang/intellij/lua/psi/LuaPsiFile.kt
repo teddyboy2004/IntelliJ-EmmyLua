@@ -25,6 +25,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.util.CachedValue
 import com.intellij.psi.util.CachedValueProvider
 import com.intellij.psi.util.CachedValuesManager
+import com.intellij.psi.util.PsiTreeUtil
 import com.tang.intellij.lua.Constants
 import com.tang.intellij.lua.comment.psi.api.LuaComment
 import com.tang.intellij.lua.lang.LuaFileType
@@ -93,7 +94,7 @@ open class LuaPsiFile(fileViewProvider: FileViewProvider) : PsiFileBase(fileView
                     if (name != null) return name
                 }
                 if (child is LuaExprStat) { // module("name")
-                    val callExpr = child.expr as? LuaCallExpr
+                    val callExpr = PsiTreeUtil.getStubChildOfType(child, LuaExpr::class.java) as? LuaCallExpr
                     val expr = callExpr?.expr
                     if (expr is LuaNameExpr && expr.textMatches(Constants.WORD_MODULE)) {
                         val stringArg = callExpr.firstStringArg
