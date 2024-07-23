@@ -25,10 +25,12 @@ import com.intellij.patterns.PlatformPatterns.psiElement
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiNamedElement
 import com.intellij.psi.tree.TokenSet
+import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.ProcessingContext
 import com.tang.intellij.lua.comment.LuaCommentUtil
 import com.tang.intellij.lua.lang.LuaIcons
 import com.tang.intellij.lua.lang.LuaLanguage
+import com.tang.intellij.lua.project.LuaCustomHandleType
 import com.tang.intellij.lua.project.LuaSettings
 import com.tang.intellij.lua.psi.*
 import com.tang.intellij.lua.refactoring.LuaRefactoringUtil
@@ -49,6 +51,9 @@ class LuaCompletionContributor : CompletionContributor() {
         extend(CompletionType.BASIC, SHOW_CLASS_FIELD, ClassMemberCompletionProvider())
 
         extend(CompletionType.BASIC, SHOW_REQUIRE_PATH, RequirePathCompletionProvider())
+
+        extend(CompletionType.BASIC, SHOW_CUSTOM_CLASS_NAME, CustomTypeHandleCompleteProvider(LuaCustomHandleType.ClassName))
+        extend(CompletionType.BASIC, SHOW_CUSTOM_REQUIRE_PATH, CustomTypeHandleCompleteProvider(LuaCustomHandleType.Require))
 
         extend(CompletionType.BASIC, LuaStringArgHistoryProvider.STRING_ARG, LuaStringArgHistoryProvider())
 
@@ -135,6 +140,12 @@ class LuaCompletionContributor : CompletionContributor() {
                                 )
                         )
                 )
+        private val SHOW_CUSTOM_CLASS_NAME = psiElement(LuaTypes.STRING)
+            .withParent(psiElement(LuaTypes.LITERAL_EXPR)
+                .withParent(psiElement(LuaArgs::class.java))).with(CustomTypePatternCondition(LuaCustomHandleType.ClassName))
+        private val SHOW_CUSTOM_REQUIRE_PATH = psiElement(LuaTypes.STRING)
+            .withParent(psiElement(LuaTypes.LITERAL_EXPR)
+                .withParent(psiElement(LuaArgs::class.java))).with(CustomTypePatternCondition(LuaCustomHandleType.Require))
 
         private val GOTO = psiElement(LuaTypes.ID).withParent(LuaGotoStat::class.java)
 
@@ -172,5 +183,22 @@ class RequireLikePatternCondition : PatternCondition<PsiElement>("requireLike"){
     override fun accepts(psi: PsiElement, context: ProcessingContext?): Boolean {
         val name = (psi as? PsiNamedElement)?.name
         return if (name != null) LuaSettings.isRequireLikeFunctionName(name) else false
+    }
+}
+
+class CustomTypePatternCondition(val handleType: LuaCustomHandleType) : PatternCondition<PsiElement>("customTypeClassName"){
+    override fun accepts(psi: PsiElement, context: ProcessingContext?): Boolean {
+        val callExpr = PsiTreeUtil.getParentOfType(psi, LuaCallExpr::class.java)
+        val argExpr = PsiTreeUtil.getParentOfType(psi, LuaExpr::class.java)
+        if (callExpr == null || argExpr == null)
+        {
+            return false
+        }
+        val index = callExpr.argList.indexOf(argExpr)
+        if (index < 0)
+        {
+            return false
+        }
+        return LuaSettings.isCustomHandleType(callExpr, 0, handleType)
     }
 }

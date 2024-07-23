@@ -155,6 +155,10 @@ abstract class TyClass(override val className: String,
         lazyInit(context)
         val clsName = superClassName
         if (clsName != null && clsName != className) {
+            // 避免父类循环引用
+            if (!searchClassType.add(clsName)) {
+//                return null
+            }
             return Ty.getBuiltin(clsName) ?: LuaShortNamesManager.getInstance(context.project).findClass(clsName, context)?.type
         }
         return null
@@ -196,6 +200,8 @@ abstract class TyClass(override val className: String,
          * See issue #510 and Ty.kt for more info on this bug.
          * -- Techcable
          */
+        val searchClassType = mutableSetOf<String>()
+        val Empty:TyClass by lazy { createSerializedClass("") }
 
         // for _G
         val G: TyClass by lazy { createSerializedClass(Constants.WORD_G) }
@@ -242,13 +248,11 @@ abstract class TyClass(override val className: String,
 }
 
 class TyPsiDocClass(tagClass: LuaDocTagClass) : TyClass(tagClass.name) {
-    var project: Project
     init {
         val supperRef = tagClass.superClassNameRef
         if (supperRef != null)
             superClassName = supperRef.text
         aliasName = tagClass.aliasName
-        project = tagClass.project
     }
 
     override fun doLazyInit(searchContext: SearchContext) {}

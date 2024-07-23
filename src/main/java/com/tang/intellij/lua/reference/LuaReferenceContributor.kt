@@ -23,9 +23,12 @@ import com.intellij.util.IncorrectOperationException
 import com.intellij.util.ProcessingContext
 import com.tang.intellij.lua.comment.psi.LuaDocTagAlias
 import com.tang.intellij.lua.comment.psi.LuaDocTagClass
+import com.tang.intellij.lua.lang.type.LuaString
 import com.tang.intellij.lua.project.LuaSettings
 import com.tang.intellij.lua.psi.*
+import com.tang.intellij.lua.psi.search.LuaShortNamesManager
 import com.tang.intellij.lua.search.SearchContext
+import com.tang.intellij.lua.stubs.index.LuaClassIndex
 import com.tang.intellij.lua.stubs.index.LuaShortNameIndex
 import com.tang.intellij.lua.ty.returnStatement
 
@@ -41,13 +44,84 @@ class LuaReferenceContributor : PsiReferenceContributor() {
         psiReferenceRegistrar.registerReferenceProvider(psiElement().withElementType(LuaTypes.GOTO_STAT), GotoReferenceProvider())
         psiReferenceRegistrar.registerReferenceProvider(psiElement().withElementType(LuaTypes.FUNC_DEF), FuncReferenceProvider())
         psiReferenceRegistrar.registerReferenceProvider(psiElement().withElementType(LuaTypes.LITERAL_EXPR), LuaStringReferenceProvider())
+        psiReferenceRegistrar.registerReferenceProvider(psiElement().withElementType(LuaTypes.RETURN), LuaFileRequireReferenceProvider())
+    }
+
+    internal inner class LuaFileRequireReferenceProvider : PsiReferenceProvider() {
+        override fun getReferencesByElement(element: PsiElement, context: ProcessingContext): Array<PsiReference> {
+            return arrayOf(LuaFileRequireReference(element))
+        }
+
+        inner class LuaFileRequireReference(luaReturnStat: PsiElement) : PsiReferenceBase<PsiElement>(luaReturnStat) {
+            val id = luaReturnStat
+
+            override fun resolve(): PsiElement? {
+                return id.containingFile
+            }
+        }
+
+    }
+
+    enum class ReferenceType {
+        None,
+        FilePath,
+        Class,
     }
 
     internal inner class LuaStringReferenceProvider : PsiReferenceProvider() {
 
+        override fun getReferencesByElement(psiElement: PsiElement, processingContext: ProcessingContext): Array<PsiReference> {
+            if (psiElement is LuaLiteralExpr && psiElement.text != null) {
+                val parent = psiElement.parent?.parent
+                if (parent is LuaCallExpr) {
+                    val nameRef = parent.expr
+                    if (nameRef is LuaNameExpr) {
+                        // 跳过require判断
+                        if (LuaSettings.isRequireLikeFunctionName(nameRef.getText())) {
+                            return PsiReference.EMPTY_ARRAY
+                        }
+                    }
+                }
+                return arrayOf(LuaFileStringReference(psiElement))
+            }
+            return PsiReference.EMPTY_ARRAY
+        }
+
         inner class LuaFileStringReference(val expr: LuaLiteralExpr) : PsiReferenceBase<LuaLiteralExpr>(expr) {
+            var referenceType: ReferenceType = ReferenceType.None
 
             val id = expr
+            private var _referenceText: String? = null
+            val referenceText: String
+                get() {
+                    if (_referenceText != null) {
+                        return _referenceText!!
+                    }
+                    var text = LuaString.getContent(id.text).value
+                    if (text.isNotBlank()) {
+                        var isFilePath = false
+                        if (text.contains("/")) {
+                            text = text.replace('/', '.')
+                            isFilePath = true
+                        }
+                        _referenceText = text
+                        val project = expr.project
+                        if (isFilePath || text.contains('.')) {
+                            val file = resolveRequireFile(text, project)
+                            if (file != null) {
+                                referenceType = ReferenceType.FilePath
+                            }
+                        } else {
+                            val find = LuaShortNamesManager.getInstance(project).findTypeDef(text, SearchContext.get(project))
+                            if (find != null) {
+                                referenceType = ReferenceType.Class
+                            }
+                        }
+                    } else {
+                        _referenceText = ""
+                    }
+                    return _referenceText!!
+                }
 
             override fun getVariants(): Array<Any> = arrayOf()
 
@@ -61,65 +135,74 @@ class LuaReferenceContributor : PsiReferenceContributor() {
                 return TextRange(start, start + id.textLength)
             }
 
-            override fun isReferenceTo(element: PsiElement): Boolean {
-                return false
-            }
+//            override fun isReferenceTo(element: PsiElement): Boolean {
+////                val text = referenceText
+////                when (referenceType) {
+////                    ReferenceType.None -> {
+////                        return false
+////                    }
+////
+////                    ReferenceType.FilePath -> {
+////                        val shortPath = LuaFileUtil.getShortPath(id.project, element.containingFile.originalFile.virtualFile)
+////                        val path = shortPath.replace(".lua", "").replace('/', '.')
+////                        if (path == text) {
+////                            return true
+////                        }
+////                    }
+////
+////                    ReferenceType.Class -> {
+////                        if (element is LuaTypeDef) {
+////                            if (element.type.displayName == text) {
+////                                return true
+////                            }
+////                        }
+////                    }
+////                }
+//                return false
+//            }
 
             override fun resolve(): PsiElement? {
-                val idName = id.text
-                if (idName.isNullOrEmpty() || idName.isBlank()) {
-                    return null
-                }
-                val text = idName.replace("\"", "")
+                val text = referenceText
                 // 支持字符跳转文件
-                if (text.contains(".") || text.contains("/")) {
-                    val filePsi = resolveRequireFile(text, expr.project)
-                    if (filePsi != null) {
-                        val returnStatement = filePsi.returnStatement()
+                val context = SearchContext.get(expr.project)
+                when (referenceType) {
+                    ReferenceType.FilePath -> {
+                        val filePsi = resolveRequireFile(text, expr.project)
+                        if (filePsi != null) {
+                            val returnStatement = filePsi.returnStatement()
 
-                        if (returnStatement != null && returnStatement.exprList?.exprList?.size == 1) {
-                            val resolvedNameExpr = returnStatement.exprList!!.exprList.first() as? LuaNameExpr
+                            val exprList = returnStatement?.exprList?.exprList
+                            if (exprList?.size == 1) {
+                                val resolvedNameExpr = exprList.first() as? LuaNameExpr
 
-                            return if (resolvedNameExpr != null) {
-                                resolveInFile(resolvedNameExpr.name, resolvedNameExpr, SearchContext.get(myElement.project))
-                            } else returnStatement
+                                if (resolvedNameExpr != null) {
+                                    val file = resolveInFile(resolvedNameExpr.name, resolvedNameExpr, context)
+                                    if (file != null) {
+                                        return file
+                                    }
+                                }
+                            }
+                            if (returnStatement != null) {
+                                return returnStatement
+                            }
                         }
-                        if (returnStatement != null) {
-                            return returnStatement
+                        return filePsi
+                    }
+
+                    ReferenceType.Class -> {
+                        // 支持跳转类型
+                        val find = LuaShortNamesManager.getInstance(expr.project).findTypeDef(text, context)
+                        if (find != null) {
+                            referenceType = ReferenceType.Class
+                            return find
                         }
+                        return null
                     }
-                    return filePsi
+
+                    else ->
+                        return null
                 }
-                else
-                {
-                    // 支持跳转类型
-                    val find = LuaShortNameIndex.find(text, SearchContext.get(expr.project))
-                    if (find.isNotEmpty()) {
-                        val first = find.first()
-                        if (first is LuaDocTagClass || first is LuaDocTagAlias)
-                            return first
-                    }
-                }
-                return null
             }
-        }
-
-        override fun getReferencesByElement(psiElement: PsiElement, processingContext: ProcessingContext): Array<PsiReference> {
-            if (psiElement is LuaLiteralExpr && psiElement.text != null) {
-                val parent = psiElement.parent?.parent
-                if (parent is LuaCallExpr)
-                {
-                    val nameRef = parent.expr
-                    if (nameRef is LuaNameExpr) {
-                        // 跳过require判断
-                        if (LuaSettings.isRequireLikeFunctionName(nameRef.getText())) {
-                            return PsiReference.EMPTY_ARRAY
-                        }
-                    }
-                }
-                return arrayOf(LuaFileStringReference(psiElement))
-            }
-            return PsiReference.EMPTY_ARRAY
         }
     }
 

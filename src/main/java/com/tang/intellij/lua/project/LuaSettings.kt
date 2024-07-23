@@ -20,12 +20,11 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.components.State
 import com.intellij.openapi.components.Storage
-import com.intellij.psi.PsiElement
-import com.intellij.psi.impl.ElementBase
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.xmlb.XmlSerializerUtil
 import com.tang.intellij.lua.Constants
 import com.tang.intellij.lua.comment.psi.LuaDocTagClass
+import com.tang.intellij.lua.editor.services.StickyPanelManager
 import com.tang.intellij.lua.lang.LuaLanguageLevel
 import com.tang.intellij.lua.psi.*
 import com.tang.intellij.lua.search.SearchContext
@@ -129,6 +128,8 @@ class LuaSettings : PersistentStateComponent<LuaSettings> {
 
     var customTypeCfg = arrayOf<LuaCustomTypeConfig>()
 
+    var isSkipModuleName = true
+
     /**
      * 使用泛型
      */
@@ -149,6 +150,16 @@ class LuaSettings : PersistentStateComponent<LuaSettings> {
      * Lua language level
      */
     var languageLevel = LuaLanguageLevel.LUA53
+    val StickyLineLevel = listOf(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+    private var _stickyScrollMaxLevel = 5
+    var stickyScrollMaxLevel: Int
+        get() = _stickyScrollMaxLevel
+        set(value) {
+            if (value != _stickyScrollMaxLevel) {
+                _stickyScrollMaxLevel = value
+                StickyPanelManager.instance?.recalculateAndRepaintLines(true)
+            }
+        }
 
     override fun getState(): LuaSettings {
         return this
@@ -216,19 +227,8 @@ class LuaSettings : PersistentStateComponent<LuaSettings> {
             }
             val expr: LuaExpr = luaCallExpr.getExpr()
             if (expr is LuaIndexExpr) {
-                val parentType = expr.guessParentType(context)
-                val typeNames = mutableSetOf<String>()
-                if (parentType is TyUnion) {
-                    parentType.getChildTypes().forEach {
-                        if (it is TyClass) {
-                            typeNames.add(it.varName)
-                        }
-                    }
-                } else if (parentType is TyClass) {
-                    typeNames.add(parentType.varName)
-                }
-                val funcName = expr.getName()
-                if (typeNames.size > 0 && !funcName.isNullOrEmpty()) {
+                val typeNames = getTypeNamesByLuaIndexExpr(expr)
+                expr.getName()?.let { funcName ->
                     typeNames.forEach {
                         val typeName = it
                         instance.customTypeCfg.forEach { config ->
@@ -245,6 +245,7 @@ class LuaSettings : PersistentStateComponent<LuaSettings> {
                                                 ty = tagClass.type
                                             }
                                         }
+
                                         LuaCustomHandleType.Require, LuaCustomHandleType.RequireField -> {
                                             val luaFile = resolveRequireFile(typeStr, context.project)
                                             if (luaFile != null) {
@@ -266,8 +267,43 @@ class LuaSettings : PersistentStateComponent<LuaSettings> {
                         }
                     }
                 }
+
             }
             return null
+        }
+
+        fun isCustomHandleType(luaCallExpr: LuaCallExpr, paramIndex: Int, handleType: LuaCustomHandleType): Boolean {
+            val expr: LuaExpr = luaCallExpr.getExpr()
+            if (expr is LuaIndexExpr) {
+                val typeNames = getTypeNamesByLuaIndexExpr(expr)
+                expr.getName()?.let { funcName ->
+                    typeNames.forEach { typeName: String ->
+                        instance.customTypeCfg.forEach {
+                            if (it.HandleType == handleType && it.ParamIndex == paramIndex && it.match(typeName, funcName)) {
+                                return true
+                            }
+                        }
+                    }
+                }
+
+            }
+            return false
+        }
+
+        private fun getTypeNamesByLuaIndexExpr(expr: LuaIndexExpr): Collection<String> {
+            val typeNames = mutableSetOf<String>()
+            val context = SearchContext.get(expr.project)
+            val parentType = expr.guessParentType(context)
+            if (parentType is TyUnion) {
+                parentType.getChildTypes().forEach {
+                    if (it is TyClass) {
+                        typeNames.add(it.varName)
+                    }
+                }
+            } else if (parentType is TyClass) {
+                typeNames.add(parentType.varName)
+            }
+            return typeNames
         }
 
         private fun getTypeStr(cfg: LuaCustomTypeConfig, luaCallExpr: LuaCallExpr, context: SearchContext): String? {

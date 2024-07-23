@@ -36,7 +36,6 @@ import com.tang.intellij.lua.lang.LuaLanguage
 import com.tang.intellij.lua.psi.LuaLocalDef
 import com.tang.intellij.lua.psi.LuaNameDef
 
-// todo: impl inline action
 class LuaInlineActionHandler : InlineActionHandler() {
     override fun inlineElement(project: Project, editor: Editor, psiElement: PsiElement) {
         if (psiElement is LuaNameDef) {

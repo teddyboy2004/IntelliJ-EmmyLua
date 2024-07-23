@@ -24,6 +24,7 @@ import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.refactoring.suggested.startOffset
 import com.tang.intellij.lua.comment.psi.*
 import com.tang.intellij.lua.comment.psi.api.LuaComment
+import com.tang.intellij.lua.psi.LuaCommentOwner
 import com.tang.intellij.lua.ty.IFunSignature
 import com.tang.intellij.lua.ty.ITy
 import com.tang.intellij.lua.ty.ITyRenderer
@@ -58,7 +59,8 @@ fun renderSignature(sb: StringBuilder, signature: IFunSignature, tyRenderer: ITy
     tyRenderer.render(signature.returnTy, sb)
 }
 
-fun renderComment(sb: StringBuilder, comment: LuaComment?, tyRenderer: ITyRenderer) {
+fun renderComment(sb: StringBuilder, commentOwner: LuaCommentOwner, tyRenderer: ITyRenderer) {
+    val comment = commentOwner.comment
     if (comment != null) {
         var child: PsiElement? = comment.firstChild
 
@@ -128,6 +130,24 @@ fun renderComment(sb: StringBuilder, comment: LuaComment?, tyRenderer: ITyRender
 
         sb.append(sections.toString())
         sb.append("</table>")
+    }
+    else
+    {
+        val doc = PsiDocumentManager.getInstance(commentOwner.project).getDocument(commentOwner.containingFile)
+        if (doc != null) {
+            val lineNumber = doc.getLineNumber(commentOwner.startOffset)
+            var current: PsiElement? = PsiTreeUtil.nextVisibleLeaf(commentOwner)
+            // 支持同一行的--注释
+            while (current != null && lineNumber == doc.getLineNumber(current.startOffset)) {
+                if (current is PsiComment && current !is LuaComment) {
+                    // 同一行的注释
+                    sb.append(" ")
+                    sb.append(current.text)
+                    break
+                }
+                current = PsiTreeUtil.nextVisibleLeaf(current)
+            }
+        }
     }
 }
 

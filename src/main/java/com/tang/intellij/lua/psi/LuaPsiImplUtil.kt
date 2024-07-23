@@ -104,15 +104,21 @@ fun isStatic(classMethodDef: LuaClassMethodDef): Boolean {
 fun getPresentation(classMethodDef: LuaClassMethodDef): ItemPresentation {
     return object : ItemPresentation {
         override fun getPresentableText(): String? {
-            val type = classMethodDef.guessClassType(SearchContext.get(classMethodDef.project))
-            if (type != null) {
-                val c = if (classMethodDef.isStatic) "." else ":"
-                return type.displayName + c + classMethodDef.name + classMethodDef.paramSignature
-            }
+//            val type = classMethodDef.guessClassType(SearchContext.get(classMethodDef.project))
+//            if (type != null) {
+//                val c = if (classMethodDef.isStatic) "." else ":"
+//                return type.displayName + c + classMethodDef.name + classMethodDef.paramSignature
+//            }
             return classMethodDef.name!! + classMethodDef.paramSignature
         }
 
         override fun getLocationString(): String {
+            // 避免跳转项目符号显示结构
+            val type = classMethodDef.guessClassType(SearchContext.get(classMethodDef.project))
+            if (type != null) {
+                val nameExpr = PsiTreeUtil.findChildOfType(classMethodDef, LuaNameExpr::class.java)
+                return nameExpr?.name ?: type.displayName
+            }
             return classMethodDef.containingFile.name
         }
 
@@ -494,6 +500,12 @@ fun getName(tableField: LuaTableField): String? {
     val idExpr = tableField.idExpr
     if (idExpr is LuaLiteralExpr && idExpr.kind == LuaLiteralKind.String)
         return LuaString.getContent(idExpr.text).value
+    var indexName: String
+    tableField.parent.children.filterIsInstance<LuaTableField>().indexOf(tableField).let { index -> indexName = "[${index + 1}]" }
+    if (indexName != "")
+    {
+        return indexName
+    }
     return null
 }
 

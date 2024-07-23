@@ -45,6 +45,9 @@ public class LuaIcons {
     public static final Icon GLOBAL_FUNCTION = new LayeredIcon(AllIcons.Nodes.Function, AllIcons.Nodes.StaticMark);
     public static final Icon GLOBAL_VAR = new LayeredIcon(AllIcons.Nodes.Variable, AllIcons.Nodes.StaticMark);
 
+    public static final Icon UNKNOWN_CALLER = new LayeredIcon(AllIcons.Nodes.Class, AllIcons.Nodes.Unknown);
+    public static final Icon UNKNOWN_METHOD = new LayeredIcon(AllIcons.Nodes.Method, AllIcons.Nodes.Unknown);
+
     public static final Icon LOCAL_VAR = AllIcons.Nodes.Variable;
     public static final Icon LOCAL_FUNCTION = AllIcons.Nodes.Function;
 

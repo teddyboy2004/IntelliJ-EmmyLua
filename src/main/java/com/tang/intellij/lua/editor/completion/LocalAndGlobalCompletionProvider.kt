@@ -18,6 +18,7 @@ package com.tang.intellij.lua.editor.completion
 
 import com.intellij.codeInsight.completion.PrioritizedLookupElement
 import com.intellij.codeInsight.lookup.LookupElementBuilder
+import com.intellij.icons.AllIcons
 import com.intellij.psi.tree.TokenSet
 import com.intellij.util.Processor
 import com.tang.intellij.lua.Constants
@@ -27,6 +28,7 @@ import com.tang.intellij.lua.psi.*
 import com.tang.intellij.lua.search.SearchContext
 import com.tang.intellij.lua.stubs.index.LuaUnknownCallerIndex
 import com.tang.intellij.lua.ty.*
+import com.vladsch.flexmark.util.html.ui.Color
 
 /**
  * suggest local/global vars and functions
@@ -136,8 +138,10 @@ class LocalAndGlobalCompletionProvider(private val mask: Int) : ClassMemberCompl
                 val name = it
                 if (name.length > 2 && session.addWord(name)) {
                     val item = LookupElementBuilder.create(it)
-                        .withIcon(LuaIcons.CLASS_METHOD)
-                        .withTypeText("$name?", true)
+                        .withIcon(LuaIcons.UNKNOWN_CALLER)
+                        .withItemTextForeground(Color.GRAY)
+                        .withItemTextItalic(true)
+                        .withTailText(" ?")
                     completionResultSet.addElement(
                         PrioritizedLookupElement.withPriority(item, -0.5)
                     )

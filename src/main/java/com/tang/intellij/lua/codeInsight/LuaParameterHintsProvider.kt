@@ -103,7 +103,8 @@ class LuaParameterHintsProvider : InlayParameterHintsProvider {
             if (FUNCTION_HINT.get() && paren != null) {
                 val type = psi.guessReturnType(SearchContext.get(psi.project))
                 if (!Ty.isInvalid(type)) {
-                    return listOf(InlayInfo("$TYPE_INFO_PREFIX${type.displayName}", paren.textOffset + paren.textLength))
+                    val displayName = type.displayName.replace("&quot;", "\"")
+                    return listOf(InlayInfo("$TYPE_INFO_PREFIX$displayName", paren.textOffset + paren.textLength))
                 }
             }
         }

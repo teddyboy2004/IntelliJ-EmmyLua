@@ -31,10 +31,16 @@ import com.tang.intellij.lua.project.LuaSourceRootManager
  *
  * Created by tangzx on 2016/12/25.
  */
-class RequirePathCompletionProvider : LuaCompletionProvider() {
+open class RequirePathCompletionProvider : LuaCompletionProvider() {
     override fun addCompletions(session: CompletionSession) {
         val completionParameters = session.parameters
         val completionResultSet = session.resultSet
+        addPaths(completionParameters, completionResultSet)
+
+        completionResultSet.stopHere()
+    }
+
+    internal fun addPaths(completionParameters: CompletionParameters, completionResultSet: CompletionResultSet) {
         val file = completionParameters.originalFile
         val cur = file.findElementAt(completionParameters.offset - 1)
         if (cur != null) {
@@ -44,11 +50,9 @@ class RequirePathCompletionProvider : LuaCompletionProvider() {
             val resultSet = completionResultSet.withPrefixMatcher(content)
             addAllFiles(completionParameters, resultSet)
         }
-
-        completionResultSet.stopHere()
     }
 
-    private fun addAllFiles(completionParameters: CompletionParameters, completionResultSet: CompletionResultSet) {
+    internal fun addAllFiles(completionParameters: CompletionParameters, completionResultSet: CompletionResultSet) {
         val project = completionParameters.originalFile.project
         val sourceRoots = LuaSourceRootManager.getInstance(project).getSourceRoots()
         for (sourceRoot in sourceRoots) {
@@ -71,11 +75,13 @@ class RequirePathCompletionProvider : LuaCompletionProvider() {
                 val lookupElement = LookupElementBuilder
                         .create(newPath)
                         .withIcon(LuaIcons.FILE)
-                        .withInsertHandler(FullPackageInsertHandler())
+                        .withInsertHandler(getInsertHandler())
                 completionResultSet.addElement(PrioritizedLookupElement.withPriority(lookupElement, 1.0))
             }
         }
     }
+
+    protected open fun getInsertHandler():InsertHandler<LookupElement> = FullPackageInsertHandler()
 
     internal class FullPackageInsertHandler : InsertHandler<LookupElement> {
 
@@ -97,6 +103,6 @@ class RequirePathCompletionProvider : LuaCompletionProvider() {
     }
 
     companion object {
-        private const val PATH_SPLITTER = '.'
+        const val PATH_SPLITTER = '.'
     }
 }

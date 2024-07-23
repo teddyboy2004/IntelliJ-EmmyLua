@@ -17,7 +17,6 @@
 package com.tang.intellij.lua.project;
 
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer;
-import com.intellij.openapi.options.Configurable;
 import com.intellij.openapi.options.SearchableConfigurable;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectManager;
@@ -62,6 +61,8 @@ public class LuaSettingsPanel implements SearchableConfigurable{
     private JTextField superFieldNames;
     private JScrollPane scrollPanel;
     private LuaCustomTypeConfigPanel typePanel;
+    private JComboBox stickylineComboBox;
+    private JCheckBox enableSkipModuleNameCheckBox;
 
     public LuaSettingsPanel() {
         this.settings = LuaSettings.Companion.getInstance();
@@ -75,6 +76,7 @@ public class LuaSettingsPanel implements SearchableConfigurable{
         additionalRoots.setRoots(settings.getAdditionalSourcesRoot());
         typePanel.setRoots(settings.getCustomTypeCfg());
         enableGenericCheckBox.setSelected(settings.getEnableGeneric());
+        enableSkipModuleNameCheckBox.setSelected(settings.isSkipModuleName());
         requireFunctionNames.setText(settings.getRequireLikeFunctionNamesString());
         superFieldNames.setText(settings.getSuperFieldNamesString());
         tooLargerFileThreshold.setDocument(new IntegerDocument());
@@ -92,6 +94,10 @@ public class LuaSettingsPanel implements SearchableConfigurable{
         ComboBoxModel<LuaLanguageLevel> lanLevelModel = new DefaultComboBoxModel<>(LuaLanguageLevel.values());
         languageLevel.setModel(lanLevelModel);
         lanLevelModel.setSelectedItem(settings.getLanguageLevel());
+
+
+        stickylineComboBox.setModel(new DefaultComboBoxModel<>(settings.getStickyLineLevel().toArray()));
+        stickylineComboBox.setSelectedItem(settings.getStickyScrollMaxLevel());
     }
 
     @NotNull
@@ -125,11 +131,13 @@ public class LuaSettingsPanel implements SearchableConfigurable{
                 settings.isNilStrict() != nilStrict.isSelected() ||
                 settings.isRecognizeGlobalNameAsType() != recognizeGlobalNameAsCheckBox.isSelected() ||
                 settings.getEnableGeneric() != enableGenericCheckBox.isSelected() ||
+                settings.isSkipModuleName() != enableSkipModuleNameCheckBox.isSelected() ||
                 settings.getAttachDebugCaptureOutput() != captureOutputDebugString.isSelected() ||
                 settings.getAttachDebugCaptureStd() != captureStd.isSelected() ||
                 settings.getAttachDebugDefaultCharsetName() != defaultCharset.getSelectedItem() ||
                 settings.getLanguageLevel() != languageLevel.getSelectedItem() ||
-                !Arrays.equals(settings.getAdditionalSourcesRoot(), additionalRoots.getRoots(), String::compareTo)||
+                settings.getStickyLineLevel() != stickylineComboBox.getSelectedItem() ||
+                !Arrays.equals(settings.getAdditionalSourcesRoot(), additionalRoots.getRoots(), String::compareTo) ||
                 !Arrays.equals(settings.getCustomTypeCfg(), typePanel.getRoots());
     }
 
@@ -151,9 +159,11 @@ public class LuaSettingsPanel implements SearchableConfigurable{
         settings.setAdditionalSourcesRoot(additionalRoots.getRoots());
         settings.setCustomTypeCfg(typePanel.getRoots());
         settings.setEnableGeneric(enableGenericCheckBox.isSelected());
+        settings.setSkipModuleName(enableSkipModuleNameCheckBox.isSelected());
         settings.setAttachDebugCaptureOutput(captureOutputDebugString.isSelected());
         settings.setAttachDebugCaptureStd(captureStd.isSelected());
         settings.setAttachDebugDefaultCharsetName((String) Objects.requireNonNull(defaultCharset.getSelectedItem()));
+        settings.setStickyScrollMaxLevel((Integer) stickylineComboBox.getSelectedItem());
         LuaLanguageLevel selectedLevel = (LuaLanguageLevel) Objects.requireNonNull(languageLevel.getSelectedItem());
         if (selectedLevel != settings.getLanguageLevel()) {
             settings.setLanguageLevel(selectedLevel);

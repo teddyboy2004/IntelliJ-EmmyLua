@@ -73,6 +73,7 @@ class LuaDocumentationProvider : AbstractDocumentationProvider(), DocumentationP
     override fun generateDoc(element: PsiElement, originalElement: PsiElement?): String? {
         val sb = StringBuilder()
         val tyRenderer = renderer
+        renderer.project = element.project
         when (element) {
             is LuaParamNameDef -> renderParamNameDef(sb, element)
             is LuaDocTagClass -> renderClassDef(sb, element, tyRenderer)
@@ -88,7 +89,7 @@ class LuaDocumentationProvider : AbstractDocumentationProvider(), DocumentationP
                 }
 
                 val owner = PsiTreeUtil.getParentOfType(element, LuaCommentOwner::class.java)
-                owner?.let { renderComment(sb, owner.comment, tyRenderer) }
+                owner?.let { renderComment(sb, owner, tyRenderer) }
             }
             is LuaLocalFuncDef -> {
                 sb.wrapTag("pre") {
@@ -96,7 +97,7 @@ class LuaDocumentationProvider : AbstractDocumentationProvider(), DocumentationP
                     val type = element.guessType(SearchContext.get(element.project)) as ITyFunction
                     renderSignature(sb, type.mainSignature, tyRenderer)
                 }
-                renderComment(sb, element.comment, tyRenderer)
+                renderComment(sb, element, tyRenderer)
             }
         }
         if (sb.isNotEmpty()) return sb.toString()
@@ -113,21 +114,23 @@ class LuaDocumentationProvider : AbstractDocumentationProvider(), DocumentationP
             //base info
             if (parentType != null) {
                 renderTy(sb, parentType, tyRenderer)
+                tyRenderer.renderDetail = true
                 with(sb) {
+                    var name = classMember.name
                     when (ty) {
                         is TyFunction -> {
                             append(if (ty.isColonCall) ":" else ".")
-                            append(classMember.name)
+                            append(name)
                             renderSignature(sb, ty.mainSignature, tyRenderer)
                         }
                         else -> {
-                            append(".${classMember.name}:")
-                            tyRenderer.renderDetail = true
+                            // array
+                            append(".$name:")
                             renderTy(sb, ty, tyRenderer)
-                            tyRenderer.renderDetail = false
                         }
                     }
                 }
+                tyRenderer.renderDetail = false
             } else {
                 //NameExpr
                 if (classMember is LuaNameExpr) {
@@ -146,7 +149,7 @@ class LuaDocumentationProvider : AbstractDocumentationProvider(), DocumentationP
                     }
 
                     val stat = nameExpr.parent.parent // VAR_LIST ASSIGN_STAT
-                    if (stat is LuaAssignStat) renderComment(sb, stat.comment, tyRenderer)
+                    if (stat is LuaAssignStat) renderComment(sb, stat, tyRenderer)
                 }
             }
         }
@@ -154,17 +157,14 @@ class LuaDocumentationProvider : AbstractDocumentationProvider(), DocumentationP
         //comment content
         when (classMember) {
             is LuaCommentOwner -> {
-                renderComment(sb, classMember.comment, tyRenderer)
-                if (classMember.comment == null) {
-                    TyRenderer.addSingleLineComment(classMember, sb)
-                }
+                renderComment(sb, classMember, tyRenderer)
             }
             is LuaDocTagField -> renderCommentString("  ", null, sb, classMember.commentString)
             is LuaIndexExpr -> {
                 val p1 = classMember.parent
                 val p2 = p1.parent
                 if (p1 is LuaVarList && p2 is LuaAssignStat) {
-                    renderComment(sb, p2.comment, tyRenderer)
+                    renderComment(sb, p2, tyRenderer)
                 }
             }
         }
@@ -179,7 +179,9 @@ class LuaDocumentationProvider : AbstractDocumentationProvider(), DocumentationP
         } else {
             val ty = infer(paramNameDef, SearchContext.get(paramNameDef.project))
             sb.append("<b>param</b> <code>${paramNameDef.name}</code> : ")
+            renderer.renderDetail = true
             renderTy(sb, ty, tyRenderer)
+            renderer.renderDetail = false
         }
     }
 }

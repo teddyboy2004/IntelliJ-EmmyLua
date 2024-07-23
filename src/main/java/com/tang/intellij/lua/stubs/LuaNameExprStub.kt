@@ -94,7 +94,7 @@ class LuaNameExprType : LuaStubElementType<LuaNameExprStub, LuaNameExpr>("NAME_E
 
             indexSink.occurrence(StubKeys.SHORT_NAME, luaNameStub.name)
         }
-        else if (luaNameStub.isGlobal && luaNameStub.parentStub is LuaIndexExprStub) {
+        else if (luaNameStub.isGlobal && luaNameStub.name != Constants.WORD_SELF && luaNameStub.parentStub is LuaIndexExprStub && luaNameStub.parentStub.parentStub.stubType == LuaTypes.CALL_EXPR) {
             indexSink.occurrence(StubKeys.UNKNOWN_CALLER, luaNameStub.name)
         }
     }

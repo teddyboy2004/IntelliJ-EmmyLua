@@ -195,6 +195,7 @@ fun resolve(indexExpr: LuaIndexExpr, idString: String, context: SearchContext): 
     // 成员变量优先跳转父类, 函数还是优先跳转当前类
     if (type is TyClass && indexExpr.guessType(context) !is TyFunction)
     {
+        TyClass.searchClassType.clear()
         var classMember = findSuperClassMemeber(type, idString, SearchContext.get(indexExpr.project), HashSet())
         if (classMember != null)
         {

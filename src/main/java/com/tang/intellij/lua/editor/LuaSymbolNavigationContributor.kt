@@ -40,4 +40,5 @@ class LuaSymbolNavigationContributor : ChooseByNameContributor {
         val elements = LuaShortNameIndex.find(s, SearchContext.get(project))
         return elements.toTypedArray()
     }
+
 }

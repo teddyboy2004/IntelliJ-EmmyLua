@@ -52,6 +52,8 @@
         <psi.referenceContributor language="Lua" implementation="com.tang.intellij.lua.reference.LuaReferenceContributor"/>
         <languageInjector implementation="com.tang.intellij.lua.lang.LuaLanguageInjector"/>
 
+        <postStartupActivity implementation="com.tang.intellij.lua.editor.activity.LuaStartupActivity"/>
+
         <spellchecker.support implementationClass="com.tang.intellij.lua.spellchecker.LuaSpellcheckingStrategy" language="Lua"/>
         <spellchecker.bundledDictionaryProvider implementation="com.tang.intellij.lua.spellchecker.LuaSpellBundledDictionaryProvider"/>
 
@@ -61,6 +63,7 @@
         <usageTypeProvider implementation="com.tang.intellij.lua.usages.UsageTypeProvider"/>
         <fileStructureGroupRuleProvider implementation="com.tang.intellij.lua.usages.UsageGroupingRuleProvider"/>
         <usageFilteringRuleProvider implementation="com.tang.intellij.lua.usages.LuaUsageFilteringRuleProvider"/>
+<!--        <importFilteringRule implementation="com.tang.intellij.lua.usages.LuaImportFilteringRule"/>-->
 
         <!--refactor-->
         <lang.refactoringSupport language="Lua" implementationClass="com.tang.intellij.lua.editor.LuaRefactoringSupportProvider"/>
@@ -91,7 +94,7 @@
         <highlightVisitor implementation="com.tang.intellij.lua.codeInsight.LuaRainbowVisitor"/>
         <highlightUsagesHandlerFactory implementation="com.tang.intellij.lua.codeInsight.highlighting.LuaHighlightUsagesHandlerFactory"/>
         <readWriteAccessDetector implementation="com.tang.intellij.lua.codeInsight.LuaReadWriteAccessDetector"/>
-        
+
         <!--hierarchy-->
         <callHierarchyProvider language="Lua" implementationClass="com.tang.intellij.lua.hierarchy.call.LuaCallHierarchyProvider"/>
 
@@ -124,6 +127,7 @@
         <stubIndex implementation="com.tang.intellij.lua.stubs.index.LuaAliasIndex"/>
         <stubIndex implementation="com.tang.intellij.lua.stubs.index.LuaUnknownClassMemberIndex"/>
         <stubIndex implementation="com.tang.intellij.lua.stubs.index.LuaUnknownCallerIndex"/>
+<!--        <stubIndex implementation="com.tang.intellij.lua.stubs.index.LuaRequirePathIndex"/>-->
         <fileBasedIndex implementation="com.tang.intellij.lua.stubs.index.LuaStringArgIndex"/>
 
         <!--surround descriptors-->
@@ -350,7 +354,7 @@
         <group id="LuaCallHierarchyPopupMenu">
             <reference ref="EditSource"/>
         </group>
-        
+
         <action class="com.tang.intellij.lua.actions.CreateLuaFileAction"
                 text="Lua File"
                 id="lua.newFile">
@@ -362,6 +366,9 @@
             <add-to-group group-id="NewGroup" anchor="after" relative-to-action="lua.newFile"/>
         </action>
         <action class="com.intellij.openapi.actionSystem.EmptyAction" text="Lua Method Override" icon="AllIcons.General.OverridenMethod" id="UsageFiltering.LuaOverride"/>
+        <action class="com.tang.intellij.lua.actions.CopyAndFindFileReferencesAction" text="Find File References" id="lua.CopyAndFindFileReferencesAction">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+        </action>
     </actions>
 
     <extensionPoints>

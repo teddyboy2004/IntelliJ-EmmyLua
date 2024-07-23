@@ -30,6 +30,7 @@ import com.intellij.refactoring.RefactoringActionHandler
 import com.intellij.refactoring.introduce.inplace.InplaceVariableIntroducer
 import com.intellij.refactoring.introduce.inplace.OccurrencesChooser
 import com.intellij.refactoring.introduce.inplace.OccurrencesChooser.ReplaceChoice
+import com.intellij.refactoring.suggested.createSmartPointer
 import com.intellij.refactoring.suggested.endOffset
 import com.tang.intellij.lua.codeInsight.template.macro.SuggestFirstLuaVarNameMacro
 import com.tang.intellij.lua.lang.LuaLanguage
@@ -212,57 +213,53 @@ class LuaIntroduceVarHandler : RefactoringActionHandler {
 //        }
         operation.name = varName
         if (commonParent != null) {
-            val pointers = mutableListOf<PsiElement>()
+            val pointers = mutableListOf<SmartPsiElementPointer<PsiElement>>()
             var positionIndex = 0
             val element = operation.element
-            var localDef = LuaElementFactory.createWith(operation.project, "local var = " + element.text)
-
             val text = element.text
-            var localDefStat: PsiElement
-
-            if (element is LuaCommentOwner && element.comment != null) {
-                val commentText = element.comment!!.text
-                var whiteSpace = ""
-                if (element.prevSibling is PsiWhiteSpace) {
-                    whiteSpace = element.prevSibling.text
-                }
-                localDefStat = LuaElementFactory.createWith(operation.project, commentText + "\n" + whiteSpace + "local " + varName + " = " + text.replace(commentText, ""))
-            } else {
-                localDefStat = LuaElementFactory.createWith(operation.project, "local $varName = $text")
-            }
-            var needSetPosition = true
+            var localDef = LuaElementFactory.createWith(operation.project, "local $varName = $text" )
+//
+//            var localDefStat: PsiElement
+//
+//            if (element is LuaCommentOwner && element.comment != null) {
+//                val commentText = element.comment!!.text
+//                var whiteSpace = ""
+//                if (element.prevSibling is PsiWhiteSpace) {
+//                    whiteSpace = element.prevSibling.text
+//                }
+//                localDefStat = LuaElementFactory.createWith(operation.project, commentText + "\n" + whiteSpace + "local " + varName + " = " + text.replace(commentText, ""))
+//            } else {
+//                localDefStat = LuaElementFactory.createWith(operation.project, "local $varName = $text")
+//            }
+//            var needSetPosition = true
             val inline = isInline(commonParent, operation)
             if (inline) {
                 val targetToReplace = if (element is LuaCallExpr && element.parent is LuaExprStat) element.parent else element
                 localDef = targetToReplace.replace(localDef)
-                pointers.add(localDef)
+                pointers.add(localDef.createSmartPointer())
             } else {
                 val anchor = findAnchor(operation.occurrences)
 
-                if (anchor == operation.occurrences.first().parent && anchor is LuaExprStat) {
-                    needSetPosition = false
-                } else {
-                    commonParent = anchor?.parent
-                    localDef = commonParent!!.addBefore(localDef, anchor)
-                    commonParent.addAfter(LuaElementFactory.newLine(operation.project), localDef)
-                    operation.occurrences.forEachIndexed { index, occ ->
-                        val identifier = occ.replace(LuaElementFactory.createName(operation.project, operation.name))
-                        pointers.add(identifier)
-                        if (occ == operation.element) {
-                            positionIndex = index
-                        }
+                commonParent = anchor?.parent
+                localDef = commonParent!!.addBefore(localDef, anchor)
+                commonParent.addAfter(LuaElementFactory.newLine(operation.project), localDef)
+                operation.occurrences.forEachIndexed { index, occ ->
+                    val identifier = occ.replace(LuaElementFactory.createName(operation.project, operation.name))
+                    pointers.add(identifier.createSmartPointer())
+                    if (occ == operation.element) {
+                        positionIndex = index
                     }
                 }
             }
 
             localDef = CodeInsightUtilCore.forcePsiPostprocessAndRestoreElement(localDef) ?: return
 
-            operation.newOccurrences.addAll(pointers)
+            operation.newOccurrences.addAll(pointers.map { it.element!! })
             operation.position = operation.newOccurrences[positionIndex]
 
             val nameDef = PsiTreeUtil.findChildOfType(localDef, LuaNameDef::class.java)
             if (nameDef != null)
-                operation.editor.caretModel.moveToOffset(nameDef.textRange.endOffset)
+                operation.editor.caretModel.moveToOffset(nameDef.textOffset)
             operation.newNameElement = nameDef
         }
     }

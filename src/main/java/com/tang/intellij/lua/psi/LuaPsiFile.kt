@@ -66,6 +66,10 @@ open class LuaPsiFile(fileViewProvider: FileViewProvider) : PsiFileBase(fileView
 
     val moduleName: String?
         get() {
+            // 这里经常报异常，先跳过
+            if (LuaSettings.instance.isSkipModuleName) {
+                return null
+            }
             val stub = stub as? LuaFileStub
             return if (stub != null) stub.module else findCachedModuleName()
         }

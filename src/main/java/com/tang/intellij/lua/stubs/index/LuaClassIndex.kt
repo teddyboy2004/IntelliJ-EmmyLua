@@ -25,6 +25,7 @@ import com.intellij.util.containers.ContainerUtil
 import com.tang.intellij.lua.comment.psi.LuaDocTagClass
 import com.tang.intellij.lua.lang.LuaLanguage
 import com.tang.intellij.lua.search.SearchContext
+import com.tang.intellij.lua.ty.TyClass
 
 /**
  *

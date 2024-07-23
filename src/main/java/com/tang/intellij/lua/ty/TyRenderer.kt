@@ -27,21 +27,25 @@ import com.tang.intellij.lua.Constants
 import com.tang.intellij.lua.comment.psi.LuaDocCommentString
 import com.tang.intellij.lua.comment.psi.LuaDocTagField
 import com.tang.intellij.lua.comment.psi.api.LuaComment
+import com.tang.intellij.lua.documentation.renderComment
+import com.tang.intellij.lua.lang.type.LuaString
 import com.tang.intellij.lua.psi.*
 import com.tang.intellij.lua.search.SearchContext
 
 interface ITyRenderer {
     var renderDetail: Boolean
+    var project: Project?
 
     fun render(ty: ITy): String
     fun render(ty: ITy, sb: StringBuilder)
     fun renderSignature(sb: StringBuilder, signature: IFunSignature)
+
 }
 
 private val MaxRenderedTableMembers = 10;
 private val MaxRenderedUnionMembers = 20;
 private val MaxRecursionDepth = 5;
-private val MaxSingleLineTableMembers = 3;
+private val MaxSingleLineTableMembers = 2;
 private val MaxSingleLineUnionMembers = 5;
 private val MaxSingleLineGenericParams = 5;
 
@@ -52,6 +56,7 @@ open class TyRenderer : TyVisitor(), ITyRenderer {
         set(value) {
             _renderDetail = value
         }
+    override var project: Project? = null
 
     override fun render(ty: ITy): String {
         return buildString { render(ty, this) }
@@ -61,6 +66,7 @@ open class TyRenderer : TyVisitor(), ITyRenderer {
         ty.accept(object : TyVisitor() {
             override fun visitTy(ty: ITy) {
                 when (ty) {
+                    is TyPrimitiveLiteral -> sb.append(renderType(ty.displayName.replace("\"", "&quot;")))
                     is ITyPrimitive -> sb.append(renderType(ty.displayName))
                     is TyVoid -> sb.append(renderType(Constants.WORD_VOID))
                     is TyUnknown -> sb.append(renderType(Constants.WORD_ANY))
@@ -76,7 +82,6 @@ open class TyRenderer : TyVisitor(), ITyRenderer {
                     }
 
                     is TyStringLiteral -> sb.append(ty.toString())
-                    is TyPrimitiveLiteral -> sb.append(renderType(ty.displayName))
                     else -> {
                         error("")
                     }
@@ -131,6 +136,7 @@ open class TyRenderer : TyVisitor(), ITyRenderer {
             }
 
             clazz is TyClass && renderDetail -> renderClassMember(clazz)
+            clazz is TySerializedClass -> renderType(clazz.varName)
             clazz.hasFlag(TyFlags.ANONYMOUS_TABLE) -> {
                 var type = Constants.WORD_TABLE
                 if (clazz is TyTable) {
@@ -160,10 +166,12 @@ open class TyRenderer : TyVisitor(), ITyRenderer {
             return ""
         }
         var proj: Project? = null
-        if (clazz is TyTable) {
-            proj = clazz.table.project
-        } else if (clazz is TyPsiDocClass) {
-            proj = clazz.project
+        if (clazz is TyTable || clazz is TyPsiDocClass) {
+            proj = project
+        }
+        if (clazz is TySerializedClass && clazz.varName == clazz.displayName)
+        {
+            proj = project
         }
         var className = ""
         val clazzName = clazz.className
@@ -180,12 +188,10 @@ open class TyRenderer : TyVisitor(), ITyRenderer {
             if (list.size >= MaxRenderedTableMembers) {
                 return@processMembers
             }
-            if (member is LuaClassMethod)
-            {
+            if (member is LuaClassMethod) {
                 return@processMembers
             }
-            if (!members.add(member))
-            {
+            if (!members.add(member)) {
                 return@processMembers
             }
             var name = member.name
@@ -195,23 +201,15 @@ open class TyRenderer : TyVisitor(), ITyRenderer {
                     name = type.displayName
                 }
             }
-            val indexTy = if (name == null) member.guessType(context) else null
+            val guessType = member.guessType(context)
+            val indexTy = if (name == null) guessType else null
             val key = name ?: "[${render(indexTy ?: Ty.VOID)}]"
-            member.guessType(context).let { fieldTy ->
+            guessType.let { fieldTy ->
                 val renderedFieldTy = render(fieldTy ?: Ty.UNKNOWN)
 
                 val comment = StringBuilder()
                 if (member is LuaCommentOwner) {
-                    if (member.comment != null) {
-                        val child = member.comment
-                        val string = PsiTreeUtil.findChildOfType(child, LuaDocCommentString::class.java)
-                        if (string != null && string.text.isNotBlank()) {
-                            comment.append("---")
-                            comment.append(string.text)
-                        }
-                    } else {
-                        addSingleLineComment(member, comment)
-                    }
+                    renderComment(comment, member, this)
                 }
                 if (member is LuaDocTagField) {
                     val string = member.commentString
@@ -233,7 +231,6 @@ open class TyRenderer : TyVisitor(), ITyRenderer {
                 )
             }
         }
-
         return "$className ${joinSingleLineOrWrap(list, MaxSingleLineTableMembers, " ", "{", "}")}"
     }
 
@@ -268,22 +265,5 @@ open class TyRenderer : TyVisitor(), ITyRenderer {
 
     companion object {
         val SIMPLE: ITyRenderer = TyRenderer()
-        fun addSingleLineComment(member: LuaCommentOwner, comment: StringBuilder)
-        {
-            val doc = PsiDocumentManager.getInstance(member.project).getDocument(member.containingFile)
-            if (doc != null) {
-                val lineNumber = doc.getLineNumber(member.startOffset)
-                var current: PsiElement? = PsiTreeUtil.nextVisibleLeaf(member)
-                // 支持同一行的--注释
-                while (current != null && lineNumber == doc.getLineNumber(current.startOffset)) {
-                    if (current is PsiComment && current !is LuaComment) {
-                        // 同一行的注释
-                        comment.append(current.text)
-                        break
-                    }
-                    current = PsiTreeUtil.nextVisibleLeaf(current)
-                }
-            }
-        }
     }
 }

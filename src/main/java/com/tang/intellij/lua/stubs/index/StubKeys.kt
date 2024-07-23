@@ -22,6 +22,7 @@ import com.tang.intellij.lua.comment.psi.LuaDocTagAlias
 import com.tang.intellij.lua.comment.psi.LuaDocTagClass
 import com.tang.intellij.lua.psi.LuaClassMember
 import com.tang.intellij.lua.psi.LuaIndexExpr
+import com.tang.intellij.lua.psi.LuaLiteralExpr
 import com.tang.intellij.lua.psi.LuaNameExpr
 
 object StubKeys {
@@ -32,4 +33,5 @@ object StubKeys {
     val ALIAS = StubIndexKey.createIndexKey<String, LuaDocTagAlias>("lua.index.alias")
     val UNKNOWN_MEMBER = StubIndexKey.createIndexKey<Int, LuaIndexExpr>("lua.index.unknown_class")
     val UNKNOWN_CALLER = StubIndexKey.createIndexKey<String, LuaNameExpr>("lua.index.unknown_caller")
+    val REQUIRE_PATH_INDEX = StubIndexKey.createIndexKey<String, LuaLiteralExpr>("lua.index.file_path")
 }

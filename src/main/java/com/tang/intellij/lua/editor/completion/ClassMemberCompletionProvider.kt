@@ -22,8 +22,10 @@ import com.intellij.codeInsight.completion.PrefixMatcher
 import com.intellij.codeInsight.completion.PrioritizedLookupElement
 import com.intellij.codeInsight.lookup.LookupElement
 import com.intellij.codeInsight.lookup.LookupElementBuilder
+import com.intellij.icons.AllIcons
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
+import com.intellij.ui.LayeredIcon
 import com.intellij.util.Processor
 import com.tang.intellij.lua.Constants
 import com.tang.intellij.lua.lang.LuaIcons
@@ -32,6 +34,7 @@ import com.tang.intellij.lua.psi.*
 import com.tang.intellij.lua.search.SearchContext
 import com.tang.intellij.lua.stubs.index.LuaUnknownClassMemberIndex
 import com.tang.intellij.lua.ty.*
+import com.vladsch.flexmark.util.html.ui.Color
 
 enum class MemberCompletionMode {
     Dot,    // self.xxx
@@ -115,18 +118,25 @@ open class ClassMemberCompletionProvider : LuaCompletionProvider() {
                         prefix = prefix.replace(Regex("_.*"), "")
                         val allKeys = LuaUnknownClassMemberIndex.find(prefix.hashCode(), context)
                         val matchKeySet = HashSet<String>()
-                        allKeys.forEach { indexExpr ->
-                            val functionName = indexExpr.name ?: return@forEach
-                            if (!session.addWord(functionName)){
-                                return@forEach
-                            }
-                            matchKeySet.add(functionName)
+                        val occurrences = hashMapOf<String, Int>()
+                        allKeys.forEach {
+                            val functionName = it.name ?: return@forEach
+                            occurrences[functionName] = occurrences.getOrDefault(functionName, 0) + 1
                         }
-                        matchKeySet.forEach() {
+                        occurrences.forEach { (key, value) ->
+                            if (value > 1 && session.addWord(key))
+                            {
+                                matchKeySet.add(key)
+                            }
+                        }
+                        matchKeySet.forEach {
                             val item = LookupElementBuilder.create(it)
-                                .withIcon(LuaIcons.CLASS_METHOD)
+                                .withIcon(LuaIcons.UNKNOWN_METHOD)
+                                .withItemTextItalic(true)
+                                .withTailText(" ?")
+                                .withItemTextForeground(Color.GRAY)
                                 .withInsertHandler(OverrideInsertHandler())
-                                .withTypeText("$prefix?", true)
+//                                .withTypeText("$prefix?", true)
                             completionResultSet.addElement(
                                 PrioritizedLookupElement.withPriority(item, -0.5)
                             )
