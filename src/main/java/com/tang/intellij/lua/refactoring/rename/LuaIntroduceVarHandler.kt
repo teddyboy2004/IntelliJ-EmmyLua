@@ -293,12 +293,13 @@ class LuaIntroduceVarHandler : RefactoringActionHandler {
         override fun moveOffsetAfter(success: Boolean) {
             val position = exprMarker
             if (position != null) {
-                var startOffset = position.startOffset
-                if (this.myInsertedName!=null)
+                val startOffset = position.startOffset
+                var endOffset = position.endOffset
+                if (startOffset == endOffset && this.myInsertedName!=null)
                 {
-                    startOffset += this.myInsertedName.length
+                    endOffset = startOffset + this.myInsertedName.length
                 }
-                operation.editor.caretModel.moveToOffset(startOffset)
+                operation.editor.caretModel.moveToOffset(endOffset)
             }
             super.moveOffsetAfter(success)
         }

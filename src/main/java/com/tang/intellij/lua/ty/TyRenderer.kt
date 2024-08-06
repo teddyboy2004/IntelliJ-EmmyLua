@@ -17,6 +17,7 @@
 package com.tang.intellij.lua.ty
 
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.project.clearCachesForAllProjectsStartingWith
 import com.intellij.psi.PsiComment
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
@@ -29,8 +30,12 @@ import com.tang.intellij.lua.comment.psi.LuaDocTagField
 import com.tang.intellij.lua.comment.psi.api.LuaComment
 import com.tang.intellij.lua.documentation.renderComment
 import com.tang.intellij.lua.lang.type.LuaString
+import com.tang.intellij.lua.project.LuaSettings
 import com.tang.intellij.lua.psi.*
+import com.tang.intellij.lua.psi.search.LuaShortNamesManager
+import com.tang.intellij.lua.refactoring.LuaRefactoringUtil
 import com.tang.intellij.lua.search.SearchContext
+import com.tang.intellij.lua.stubs.index.LuaShortNameIndex
 
 interface ITyRenderer {
     var renderDetail: Boolean
@@ -97,7 +102,7 @@ open class TyRenderer : TyVisitor(), ITyRenderer {
                 u.acceptChildren(object : TyVisitor() {
                     override fun visitTy(ty: ITy) {
                         val s = render(ty)
-                        if (s.isNotEmpty()) list.add(s)
+                        if (s.isNotEmpty() && s != Constants.WORD_NIL) list.add(s)
                     }
                 })
                 sb.append(if (list.isEmpty()) Constants.WORD_ANY else list.joinToString("|"))
@@ -160,31 +165,39 @@ open class TyRenderer : TyVisitor(), ITyRenderer {
         return t
     }
 
+    private val tableTypeStr = renderType("table")
+    private val spaceRegex = Regex("\\s+")
+
     // 优化类成员提示，增加显示注释
     private fun renderClassMember(clazz: TyClass?): String {
         if (clazz == null) {
             return ""
         }
         var proj: Project? = null
-        if (clazz is TyTable || clazz is TyPsiDocClass) {
+        if (clazz is TyTable || clazz is TyPsiDocClass || clazz is TySerializedClass) {
             proj = project
         }
-        if (clazz is TySerializedClass && clazz.varName == clazz.displayName)
-        {
-            proj = project
-        }
+
         var className = ""
         val clazzName = clazz.className
-        if (!clazzName.contains("@") && !clazzName.contains("$")) {
+        if (clazzName.startsWith('$')) {
+            className = clazzName.substring(1)
+        } else if (!clazzName.contains('@')) {
             className = clazzName
         }
+
         if (proj == null) {
             return className
         }
         val context = SearchContext.get(proj)
+        // 全局如果找不到定义就判断为any
+        if (clazz is TySerializedClass && clazz.isGlobal) {
+            LuaShortNameIndex.find(className, context).firstOrNull() ?: return Ty.UNKNOWN.displayName
+        }
+
         val list = mutableListOf<String>()
         val members = hashSetOf<LuaClassMember>()
-        clazz.processMembers(context) { owner, member ->
+        clazz.processMembers(context) { _, member ->
             if (list.size >= MaxRenderedTableMembers) {
                 return@processMembers
             }
@@ -195,18 +208,40 @@ open class TyRenderer : TyVisitor(), ITyRenderer {
                 return@processMembers
             }
             var name = member.name
-            if (name == null && member is LuaTableField && member.idExpr is LuaTypeGuessable) {
-                val type = member.idExpr!!.guessType(context)
-                if (type is TyPrimitiveLiteral) {
-                    name = type.displayName
+            if (member is LuaTableField) {
+                if (name != null && !LuaRefactoringUtil.isLuaIdentifier(name)) {
+                    name = "[$name]"
+                } else if (name == null && member.idExpr is LuaTypeGuessable) {
+                    val type = member.idExpr!!.guessType(context)
+                    if (type is TyPrimitiveLiteral) {
+                        name = type.displayName
+                    }
                 }
             }
             val guessType = member.guessType(context)
             val indexTy = if (name == null) guessType else null
             val key = name ?: "[${render(indexTy ?: Ty.VOID)}]"
             guessType.let { fieldTy ->
-                val renderedFieldTy = render(fieldTy ?: Ty.UNKNOWN)
-
+                renderDetail = false
+                val renderedFieldTy: String = if (fieldTy is TyTable) {
+                    var str: String? = null
+                    if (member is LuaTableField) {
+                        val text = member.valueExpr?.text
+                        if (text!= null) {
+                            val s = text.replace(spaceRegex," ")
+                            if (s.length <= 80) {
+                                str = "$tableTypeStr: $s"
+                            }
+                        }
+                    }
+                    if (str == null) {
+                        str = tableTypeStr
+                    }
+                    str
+                } else {
+                    render(fieldTy ?: Ty.UNKNOWN)
+                }
+                renderDetail = true
                 val comment = StringBuilder()
                 if (member is LuaCommentOwner) {
                     renderComment(comment, member, this)
@@ -230,6 +265,9 @@ open class TyRenderer : TyVisitor(), ITyRenderer {
                     }
                 )
             }
+        }
+        if (clazz is TySerializedClass && list.isEmpty()) {
+            return Constants.WORD_NIL
         }
         return "$className ${joinSingleLineOrWrap(list, MaxSingleLineTableMembers, " ", "{", "}")}"
     }

@@ -24,6 +24,7 @@ import com.intellij.codeInsight.template.impl.TextExpression
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.fileTypes.FileType
 import com.intellij.openapi.project.Project
+import com.intellij.psi.PsiComment
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiFile
 import com.intellij.psi.util.PsiTreeUtil
@@ -55,7 +56,12 @@ class LuaTypedHandler : TypedHandlerDelegate() {
                 when (element?.node?.elementType) {
                     LuaTypes.DOT,
                     LuaTypes.SHORT_COMMENT -> return Result.STOP
-
+                    LuaTypes.LPAREN -> {
+                        if (element?.nextSibling?.text == ")") {
+                            editor.caretModel.moveToOffset(editor.caretModel.offset+1)
+                        }
+                        return Result.STOP
+                    }
                     LuaTypes.ID -> {
                         if (element!!.textMatches(Constants.WORD_SELF) && element.parent is LuaNameExpr) {
                             val guessType = (element.parent as LuaNameExpr).guessType(SearchContext.get(element.project))

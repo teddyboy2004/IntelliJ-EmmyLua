@@ -193,13 +193,25 @@ fun resolve(indexExpr: LuaIndexExpr, idString: String, context: SearchContext): 
     }
 
     // 成员变量优先跳转父类, 函数还是优先跳转当前类
-    if (type is TyClass && indexExpr.guessType(context) !is TyFunction)
-    {
-        TyClass.searchClassType.clear()
-        var classMember = findSuperClassMemeber(type, idString, SearchContext.get(indexExpr.project), HashSet())
-        if (classMember != null)
-        {
-            return classMember
+    if (type is TyClass) {
+        val guessType = indexExpr.guessType(context)
+        var isNotFunction = true
+        if (guessType is TyFunction) {
+            isNotFunction = false
+        }
+        else if (guessType is TyUnion) {
+            guessType.getChildTypes().forEach {
+                if (it is TyFunction) {
+                    isNotFunction = false
+                }
+            }
+        }
+        if (isNotFunction) {
+            TyClass.searchClassType.clear()
+            val classMember = findSuperClassMemeber(type, idString, SearchContext.get(indexExpr.project), HashSet())
+            if (classMember != null) {
+                return classMember
+            }
         }
     }
 

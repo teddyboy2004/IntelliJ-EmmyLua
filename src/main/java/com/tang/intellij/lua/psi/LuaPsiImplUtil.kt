@@ -501,12 +501,8 @@ fun getName(tableField: LuaTableField): String? {
     if (idExpr is LuaLiteralExpr && idExpr.kind == LuaLiteralKind.String)
         return LuaString.getContent(idExpr.text).value
     var indexName: String
-    tableField.parent.children.filterIsInstance<LuaTableField>().indexOf(tableField).let { index -> indexName = "[${index + 1}]" }
-    if (indexName != "")
-    {
-        return indexName
-    }
-    return null
+    tableField.parent.children.filterIsInstance<LuaTableField>().filter { it.nameIdentifier == null }.indexOf(tableField).let { index -> indexName = (index + 1).toString() }
+    return indexName
 }
 
 fun getFieldName(tableField: LuaTableField): String? {

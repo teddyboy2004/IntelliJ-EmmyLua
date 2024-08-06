@@ -24,6 +24,7 @@ import com.intellij.util.BitUtil
 import com.intellij.util.io.StringRef
 import com.tang.intellij.lua.Constants
 import com.tang.intellij.lua.editor.LuaNameSuggestionProvider
+import com.tang.intellij.lua.project.LuaSettings
 import com.tang.intellij.lua.psi.*
 import com.tang.intellij.lua.psi.impl.LuaIndexExprImpl
 import com.tang.intellij.lua.search.SearchContext
@@ -136,18 +137,16 @@ class LuaIndexExprType : LuaStubElementType<LuaIndexExprStub, LuaIndexExpr>("IND
             if (indexStub.childrenStubs.isNotEmpty()) {
                 val element = indexStub.childrenStubs[0]
                 if (element is LuaNameExprStub) {
-                    if (element.isGlobal) {
+//                    if (element.isGlobal) {
                         callName = element.name
-                    }
+//                    }
                 } else if (element is LuaIndexExprStub) {
                     callName = element.name
                 }
-                if (callName != null) {
-                    callName = callName.replace(Regex("_.*"), "")
-                }
+                callName = LuaSettings.getUnknownTypeName(callName)
             }
             // 太少的名字没有太多意义，循环中的v，k等
-            if (callName != null && !LuaNameSuggestionProvider.isKeyword(callName) && callName != Constants.WORD_SELF && callName.length > 2) {
+            if (!callName.isNullOrBlank() && !LuaNameSuggestionProvider.isKeyword(callName) && callName != Constants.WORD_SELF && callName.length > 2) {
                 indexSink.occurrence(StubKeys.UNKNOWN_MEMBER, callName.hashCode())
             }
         }

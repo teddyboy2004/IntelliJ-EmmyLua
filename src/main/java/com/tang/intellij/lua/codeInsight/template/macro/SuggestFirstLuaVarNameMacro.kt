@@ -30,6 +30,7 @@ import com.intellij.refactoring.suggested.startOffset
 import com.tang.intellij.lua.comment.psi.LuaDocTagClass
 import com.tang.intellij.lua.editor.LuaNameSuggestionProvider
 import com.tang.intellij.lua.lang.type.LuaString
+import com.tang.intellij.lua.project.LuaSettings
 import com.tang.intellij.lua.psi.*
 import com.tang.intellij.lua.search.SearchContext
 import com.tang.intellij.lua.ty.*
@@ -138,17 +139,18 @@ class SuggestFirstLuaVarNameMacro : Macro() {
     companion object {
         fun getElementSuggestName(e: PsiElement?, element: PsiElement): String? {
             // 根据类型判断命名
+            val context = SearchContext.get(element.project)
+            var name: String? = null
             if (element is LuaTypeGuessable) {
-                val context = SearchContext.get(element.project)
 //                val set = HashSet<String>()
 //                LuaNameSuggestionProvider.GetSuggestedNames(element, set)
 //                if (set.isNotEmpty())
 //                {
 //                    return set.elementAt(0)
 //                }
-                var type = element.guessType(context)
-                val name = getElementSuggestNameByType(type, context)
-                if (name != null && !LuaNameSuggestionProvider.isKeyword(name)) {
+                val type = element.guessType(context)
+                name = getElementSuggestNameByType(type, context)
+                if (name != null && name.length > 3 && !LuaNameSuggestionProvider.isKeyword(name)) {
                     return name
                 }
             }
@@ -157,11 +159,25 @@ class SuggestFirstLuaVarNameMacro : Macro() {
             if (element is LuaCallExpr && element.expr.name != null) {
                 val functionName = element.expr.name
                 if (functionName != null) {
+                    if (LuaSettings.isRequireLikeFunctionName(functionName)) {
+                        val expr = element.argList.first()
+                        val guessType = expr.guessType(context)
+                        if (guessType is TyPrimitiveLiteral && guessType.primitiveKind == TyPrimitiveKind.String) {
+                            val path = guessType.value
+                            val file = resolveRequireFile(path, element.project)
+                            if (file != null) {
+                                return file.virtualFile.nameWithoutExtension
+                            }
+                        }
+                    }
                     val names = NameUtil.getSuggestionsByName(functionName, "", "", false, false, false)
                     if (names.isNotEmpty() && !LuaNameSuggestionProvider.isKeyword(names[0])) {
                         return names[0]
                     }
                 }
+            }
+            if (name != null) {
+                return name
             }
 
             var e1 = e
@@ -180,20 +196,12 @@ class SuggestFirstLuaVarNameMacro : Macro() {
                 }
             }
             // 如果是包含路径，可以判断一下是不是引用了
-            if (lastText?.contains(".") == true) {
-                if (element.text.contains("require(")) {
-                    val file = resolveRequireFile(lastText, element.project)
-                    if (file != null) {
-                        val child = PsiTreeUtil.findChildOfType(file, LuaDocTagClass::class.java)
-                        if (child != null && !LuaNameSuggestionProvider.isKeyword(child.name)) {
-                            return child.name
-                        }
-                        val returnText = file.returnStatement()?.exprList?.text
-                        // 过短也没有必要返回
-                        if (returnText != null && returnText.length > 3 && !LuaNameSuggestionProvider.isKeyword(returnText)) {
-                            return returnText
-                        }
-                    }
+            if (element.text.contains("require(") && lastText != null) {
+                val file = resolveRequireFile(lastText, element.project)
+                name = getSuggestName(file)
+                // 名字过短就用文件名
+                if (name != null && name.length <= 3 && file != null) {
+                    return file.virtualFile.nameWithoutExtension
                 }
                 // .只包含最后一个名称
                 lastText = lastText.replace(Regex(".*\\."), "")
@@ -204,15 +212,28 @@ class SuggestFirstLuaVarNameMacro : Macro() {
             return lastText
         }
 
+        fun getSuggestName(file: LuaPsiFile?): String? {
+            if (file == null) {
+                return null
+            }
+            val child = PsiTreeUtil.findChildOfType(file, LuaDocTagClass::class.java)
+            if (child != null && !LuaNameSuggestionProvider.isKeyword(child.name)) {
+                return child.name
+            }
+            val returnText = file.returnStatement()?.exprList?.text
+            if (returnText != null && !LuaNameSuggestionProvider.isKeyword(returnText)) {
+                return returnText
+            }
+            return ""
+        }
+
         // 根据类型判断文件名
         fun getElementSuggestNameByType(ity: ITy?, context: SearchContext): String? {
             var type = ity
-            if (type is TyUnion)
-            {
-                type.getChildTypes().forEach(){
+            if (type is TyUnion) {
+                type.getChildTypes().forEach() {
                     val name = getElementSuggestNameByType(it, context)
-                    if (name != null)
-                    {
+                    if (name != null) {
                         return name
                     }
                 }
@@ -224,7 +245,7 @@ class SuggestFirstLuaVarNameMacro : Macro() {
             }
             if (type is TyClass) {
                 val className = type.className
-                if (!className.contains("@")) {
+                if (!className.contains("@") && ! className.contains("|")) {
                     return className.replace(Regex(".*\\."), "")
                 } else {
                     val superType = type.getSuperClass(context)

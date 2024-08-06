@@ -154,4 +154,6 @@ object LuaFileUtil {
     fun isStdLibFile(file: VirtualFile, project: Project): Boolean {
         return file.getUserData(PREDEFINED_KEY) != null || FileIndexFacade.getInstance(project).isInLibraryClasses(file)
     }
+
+
 }

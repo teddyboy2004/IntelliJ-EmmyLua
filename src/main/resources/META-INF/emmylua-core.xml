@@ -63,7 +63,7 @@
         <usageTypeProvider implementation="com.tang.intellij.lua.usages.UsageTypeProvider"/>
         <fileStructureGroupRuleProvider implementation="com.tang.intellij.lua.usages.UsageGroupingRuleProvider"/>
         <usageFilteringRuleProvider implementation="com.tang.intellij.lua.usages.LuaUsageFilteringRuleProvider"/>
-<!--        <importFilteringRule implementation="com.tang.intellij.lua.usages.LuaImportFilteringRule"/>-->
+        <!--        <importFilteringRule implementation="com.tang.intellij.lua.usages.LuaImportFilteringRule"/>-->
 
         <!--refactor-->
         <lang.refactoringSupport language="Lua" implementationClass="com.tang.intellij.lua.editor.LuaRefactoringSupportProvider"/>
@@ -73,12 +73,15 @@
         <inlineActionHandler implementation="com.tang.intellij.lua.refactoring.inline.LuaInlineActionHandler"/>
         <moveFileHandler implementation="com.tang.intellij.lua.refactoring.move.LuaMoveFileHandler"/>
         <renameInputValidator implementation="com.tang.intellij.lua.refactoring.rename.LuaDocClassRenameInputValidator"/>
+        <moveLeftRightHandler language="Lua" implementationClass="com.tang.intellij.lua.editor.LuaMoveElementLeftRightHandler" order="last"/>
+        <statementUpDownMover implementation="com.tang.intellij.lua.editor.LuaStatementUpDownMover" id="Lua"/>
 
         <!--navigate-->
         <gotoClassContributor implementation="com.tang.intellij.lua.editor.LuaClassNavigationContributor"/>
         <gotoSymbolContributor implementation="com.tang.intellij.lua.editor.LuaSymbolNavigationContributor"/>
         <breadcrumbsInfoProvider implementation="com.tang.intellij.lua.editor.LuaBreadcrumbsProvider"/>
         <typeDeclarationProvider implementation="com.tang.intellij.lua.editor.LuaTypeDeclarationProvider"/>
+        <searchEverywhereContributor implementation="com.tang.intellij.lua.editor.LuaSymbolSearchEverywhereContributor$Factory" id="SymbolSearchEverywhereContributor" override="true"/>
 
         <!--completion-->
         <completion.contributor language="Lua" implementationClass="com.tang.intellij.lua.editor.completion.SmartCompletionContributor"/>
@@ -88,6 +91,7 @@
 
         <!--codeInsight-->
         <codeInsight.lineMarkerProvider language="Lua" implementationClass="com.tang.intellij.lua.codeInsight.LuaLineMarkerProvider"/>
+        <codeInsight.gotoSuper language="Lua" implementationClass="com.tang.intellij.lua.editor.LuaGotoSuperHandler"/>
         <codeInsight.parameterNameHints language="Lua" implementationClass="com.tang.intellij.lua.codeInsight.LuaParameterHintsProvider"/>
         <codeInsight.parameterInfo language="Lua" implementationClass="com.tang.intellij.lua.codeInsight.LuaParameterInfoHandler"/>
         <codeInsight.template.postfixTemplateProvider language="Lua" implementationClass="com.tang.intellij.lua.codeInsight.postfix.LuaPostfixTemplateProvider"/>
@@ -99,7 +103,7 @@
         <callHierarchyProvider language="Lua" implementationClass="com.tang.intellij.lua.hierarchy.call.LuaCallHierarchyProvider"/>
 
         <!--editor handlers-->
-        <enterHandlerDelegate implementation="com.tang.intellij.lua.editor.LuaEnterAfterUnmatchedBraceHandler" />
+        <enterHandlerDelegate implementation="com.tang.intellij.lua.editor.LuaEnterAfterUnmatchedBraceHandler"/>
         <enterHandlerDelegate implementation="com.tang.intellij.lua.editor.LuaEnterInDocHandler"/>
         <enterHandlerDelegate implementation="com.tang.intellij.lua.editor.LuaEnterBetweenRangeBlockHandler"/>
         <enterBetweenBracesDelegate implementationClass="com.tang.intellij.lua.editor.LuaEnterBetweenBracesHandler" language="Lua"/>
@@ -110,7 +114,7 @@
         <customPasteProvider implementation="com.tang.intellij.lua.codeInsight.editorActions.StringLiteralPasteProvider"/>
 
         <!--highlighting-->
-        <annotator language="Lua" implementationClass="com.tang.intellij.lua.annotator.LuaAnnotator" />
+        <annotator language="Lua" implementationClass="com.tang.intellij.lua.annotator.LuaAnnotator"/>
         <annotator language="Lua" implementationClass="com.tang.intellij.lua.annotator.LargerFileAnnotator"/>
         <problemFileHighlightFilter implementation="com.tang.intellij.lua.highlighting.LuaProblemFileHighlightFilter"/>
         <colorSettingsPage implementation="com.tang.intellij.lua.editor.LuaColorSettingsPage"/>
@@ -118,7 +122,7 @@
         <additionalTextAttributes scheme="Darcula" file="colorSchemes/Darcula.xml"/>
 
         <!--stub & index-->
-        <stubElementTypeHolder externalIdPrefix="lua" class="com.tang.intellij.lua.psi.LuaTypes" />
+        <stubElementTypeHolder externalIdPrefix="lua" class="com.tang.intellij.lua.psi.LuaTypes"/>
         <stubElementTypeHolder externalIdPrefix="lua-doc" class="com.tang.intellij.lua.comment.psi.LuaDocTypes"/>
         <stubIndex implementation="com.tang.intellij.lua.stubs.index.LuaClassIndex"/>
         <stubIndex implementation="com.tang.intellij.lua.stubs.index.LuaClassMemberIndex"/>
@@ -127,7 +131,7 @@
         <stubIndex implementation="com.tang.intellij.lua.stubs.index.LuaAliasIndex"/>
         <stubIndex implementation="com.tang.intellij.lua.stubs.index.LuaUnknownClassMemberIndex"/>
         <stubIndex implementation="com.tang.intellij.lua.stubs.index.LuaUnknownCallerIndex"/>
-<!--        <stubIndex implementation="com.tang.intellij.lua.stubs.index.LuaRequirePathIndex"/>-->
+        <!--        <stubIndex implementation="com.tang.intellij.lua.stubs.index.LuaRequirePathIndex"/>-->
         <fileBasedIndex implementation="com.tang.intellij.lua.stubs.index.LuaStringArgIndex"/>
 
         <!--surround descriptors-->
@@ -147,7 +151,7 @@
         <programRunner implementation="com.tang.intellij.lua.debugger.emmy.EmmyDebuggerRunner"/>
         <configurationType implementation="com.tang.intellij.lua.debugger.emmy.EmmyDebugConfigurationType"/>
         <xdebugger.breakpointType implementation="com.tang.intellij.lua.debugger.LuaLineBreakpointType"/>
-<!--        <xdebugger.attachDebuggerProvider implementation="com.tang.intellij.lua.debugger.emmyAttach.EmmyAttachDebuggerProvider"/>-->
+        <!--        <xdebugger.attachDebuggerProvider implementation="com.tang.intellij.lua.debugger.emmyAttach.EmmyAttachDebuggerProvider"/>-->
 
         <!--templates-->
         <defaultLiveTemplates file="/liveTemplates/lua.xml"/>
@@ -233,6 +237,16 @@
             <language>Lua</language>
             <category>Lua</category>
             <className>com.tang.intellij.lua.codeInsight.intention.ComputeConstantValueIntention</className>
+        </intentionAction>
+        <intentionAction>
+            <language>Lua</language>
+            <category>Lua</category>
+            <className>com.tang.intellij.lua.codeInsight.intention.CheckNotNilIntention</className>
+        </intentionAction>
+        <intentionAction>
+            <language>Lua</language>
+            <category>Lua</category>
+            <className>com.tang.intellij.lua.codeInsight.intention.SplitValueDeclarationIntention</className>
         </intentionAction>
 
         <lang.inspectionSuppressor language="Lua" implementationClass="com.tang.intellij.lua.codeInsight.inspection.LuaSuppressManager"/>

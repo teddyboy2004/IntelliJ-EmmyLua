@@ -33,9 +33,7 @@ import javax.swing.text.AttributeSet;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.PlainDocument;
 import java.nio.charset.Charset;
-import java.util.Arrays;
-import java.util.Objects;
-import java.util.SortedMap;
+import java.util.*;
 
 /**
  * Created by tangzx on 2017/6/12.
@@ -59,10 +57,10 @@ public class LuaSettingsPanel implements SearchableConfigurable{
     private JTextField requireFunctionNames;
     private JTextField tooLargerFileThreshold;
     private JTextField superFieldNames;
-    private JScrollPane scrollPanel;
     private LuaCustomTypeConfigPanel typePanel;
-    private JComboBox stickylineComboBox;
+    private JComboBox<Integer> stickyLineComboBox;
     private JCheckBox enableSkipModuleNameCheckBox;
+    private JTextField unknownTypeGuessRegexStr;
 
     public LuaSettingsPanel() {
         this.settings = LuaSettings.Companion.getInstance();
@@ -78,9 +76,11 @@ public class LuaSettingsPanel implements SearchableConfigurable{
         enableGenericCheckBox.setSelected(settings.getEnableGeneric());
         enableSkipModuleNameCheckBox.setSelected(settings.isSkipModuleName());
         requireFunctionNames.setText(settings.getRequireLikeFunctionNamesString());
+        unknownTypeGuessRegexStr.setText(settings.getUnknownTypeGuessRegexStr());
         superFieldNames.setText(settings.getSuperFieldNamesString());
         tooLargerFileThreshold.setDocument(new IntegerDocument());
         tooLargerFileThreshold.setText(String.valueOf(settings.getTooLargerFileThreshold()));
+
 
         captureStd.setSelected(settings.getAttachDebugCaptureStd());
         captureOutputDebugString.setSelected(settings.getAttachDebugCaptureOutput());
@@ -95,9 +95,10 @@ public class LuaSettingsPanel implements SearchableConfigurable{
         languageLevel.setModel(lanLevelModel);
         lanLevelModel.setSelectedItem(settings.getLanguageLevel());
 
-
-        stickylineComboBox.setModel(new DefaultComboBoxModel<>(settings.getStickyLineLevel().toArray()));
-        stickylineComboBox.setSelectedItem(settings.getStickyScrollMaxLevel());
+        // sticky line
+        Vector<Integer> stickyLineLevel = settings.getStickyLineLevel();
+        stickyLineComboBox.setModel(new DefaultComboBoxModel<>(stickyLineLevel));
+        stickyLineComboBox.setSelectedItem(settings.getStickyScrollMaxLevel());
     }
 
     @NotNull
@@ -115,13 +116,14 @@ public class LuaSettingsPanel implements SearchableConfigurable{
     @Nullable
     @Override
     public JComponent createComponent() {
-        return scrollPanel;
+        return myPanel;
     }
 
     @Override
     public boolean isModified() {
         return !StringUtil.equals(settings.getConstructorNamesString(), constructorNames.getText()) ||
                 !StringUtil.equals(settings.getRequireLikeFunctionNamesString(), requireFunctionNames.getText()) ||
+                !StringUtil.equals(settings.getUnknownTypeGuessRegexStr(), unknownTypeGuessRegexStr.getText()) ||
                 !StringUtil.equals(settings.getSuperFieldNamesString(), superFieldNames.getText()) ||
                 settings.getTooLargerFileThreshold() != getTooLargerFileThreshold() ||
                 settings.isStrictDoc() != strictDoc.isSelected() ||
@@ -136,7 +138,7 @@ public class LuaSettingsPanel implements SearchableConfigurable{
                 settings.getAttachDebugCaptureStd() != captureStd.isSelected() ||
                 settings.getAttachDebugDefaultCharsetName() != defaultCharset.getSelectedItem() ||
                 settings.getLanguageLevel() != languageLevel.getSelectedItem() ||
-                settings.getStickyLineLevel() != stickylineComboBox.getSelectedItem() ||
+                !Objects.equals(stickyLineComboBox.getSelectedItem(), settings.getStickyScrollMaxLevel()) ||
                 !Arrays.equals(settings.getAdditionalSourcesRoot(), additionalRoots.getRoots(), String::compareTo) ||
                 !Arrays.equals(settings.getCustomTypeCfg(), typePanel.getRoots());
     }
@@ -147,6 +149,8 @@ public class LuaSettingsPanel implements SearchableConfigurable{
         constructorNames.setText(settings.getConstructorNamesString());
         settings.setRequireLikeFunctionNamesString(requireFunctionNames.getText());
         requireFunctionNames.setText(settings.getRequireLikeFunctionNamesString());
+        settings.setUnknownTypeGuessRegexStr(unknownTypeGuessRegexStr.getText());
+        unknownTypeGuessRegexStr.setText(settings.getUnknownTypeGuessRegexStr());
         settings.setSuperFieldNamesString(superFieldNames.getText());
         superFieldNames.setText(settings.getSuperFieldNamesString());
         settings.setTooLargerFileThreshold(getTooLargerFileThreshold());
@@ -163,7 +167,7 @@ public class LuaSettingsPanel implements SearchableConfigurable{
         settings.setAttachDebugCaptureOutput(captureOutputDebugString.isSelected());
         settings.setAttachDebugCaptureStd(captureStd.isSelected());
         settings.setAttachDebugDefaultCharsetName((String) Objects.requireNonNull(defaultCharset.getSelectedItem()));
-        settings.setStickyScrollMaxLevel((Integer) stickylineComboBox.getSelectedItem());
+        settings.setStickyScrollMaxLevel((Integer) stickyLineComboBox.getSelectedItem());
         LuaLanguageLevel selectedLevel = (LuaLanguageLevel) Objects.requireNonNull(languageLevel.getSelectedItem());
         if (selectedLevel != settings.getLanguageLevel()) {
             settings.setLanguageLevel(selectedLevel);

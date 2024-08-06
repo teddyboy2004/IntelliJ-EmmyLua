@@ -169,7 +169,7 @@ private fun renderReturn(sb: StringBuilder, tagReturn: LuaDocTagReturn, tyRender
 
 fun renderClassDef(sb: StringBuilder, tag: LuaDocTagClass, tyRenderer: ITyRenderer) {
     val cls = tag.type
-    sb.append("<pre>")
+    sb.append("<pre style=\"font-family:'Microsoft YaHei'\">")
     sb.append("class ")
     sb.wrapTag("b") { tyRenderer.render(cls, sb) }
     val superClassName = cls.superClassName
@@ -188,7 +188,7 @@ private fun renderFieldDef(sb: StringBuilder, tagField: LuaDocTagField, tyRender
 }
 
 fun renderDefinition(sb: StringBuilder, block: () -> Unit) {
-    sb.append("<div class='definition'><pre>")
+    sb.append("<div class='definition'><pre style=\"font-family:'Microsoft YaHei'\">")
     block()
     sb.append("</pre></div>")
 }

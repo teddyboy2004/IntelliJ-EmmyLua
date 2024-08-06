@@ -22,10 +22,8 @@ import com.intellij.codeInsight.completion.PrefixMatcher
 import com.intellij.codeInsight.completion.PrioritizedLookupElement
 import com.intellij.codeInsight.lookup.LookupElement
 import com.intellij.codeInsight.lookup.LookupElementBuilder
-import com.intellij.icons.AllIcons
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
-import com.intellij.ui.LayeredIcon
 import com.intellij.util.Processor
 import com.tang.intellij.lua.Constants
 import com.tang.intellij.lua.lang.LuaIcons
@@ -55,6 +53,7 @@ open class ClassMemberCompletionProvider : LuaCompletionProvider() {
     internal class OverrideInsertHandler() : ArgsInsertHandler() {
         override val isVarargs: Boolean
             get() = true
+
         override fun getParams(): Array<LuaParamInfo> {
             return emptyArray<LuaParamInfo>()
         }
@@ -113,28 +112,23 @@ open class ClassMemberCompletionProvider : LuaCompletionProvider() {
                 }
                 val last = indexExpr.exprList.last()
                 if (show) {
-                    var prefix = last.name ?: ""
+                    val prefix = last.name ?: ""
                     if (prefix.isNotBlank()) {
-                        prefix = prefix.replace(Regex("_.*"), "")
-                        val allKeys = LuaUnknownClassMemberIndex.find(prefix.hashCode(), context)
+                        val typeName = LuaSettings.getUnknownTypeName(prefix) ?: return
                         val matchKeySet = HashSet<String>()
                         val occurrences = hashMapOf<String, Int>()
+                        val allKeys = LuaUnknownClassMemberIndex.find(typeName.hashCode(), context)
                         allKeys.forEach {
                             val functionName = it.name ?: return@forEach
                             occurrences[functionName] = occurrences.getOrDefault(functionName, 0) + 1
                         }
                         occurrences.forEach { (key, value) ->
-                            if (value > 1 && session.addWord(key))
-                            {
+                            if (value > 1 && session.addWord(key)) {
                                 matchKeySet.add(key)
                             }
                         }
                         matchKeySet.forEach {
-                            val item = LookupElementBuilder.create(it)
-                                .withIcon(LuaIcons.UNKNOWN_METHOD)
-                                .withItemTextItalic(true)
-                                .withTailText(" ?")
-                                .withItemTextForeground(Color.GRAY)
+                            val item = LookupElementBuilder.create(it).withIcon(LuaIcons.UNKNOWN_METHOD).withItemTextItalic(true).withTailText(" ?").withItemTextForeground(Color.GRAY)
                                 .withInsertHandler(OverrideInsertHandler())
 //                                .withTypeText("$prefix?", true)
                             completionResultSet.addElement(
@@ -147,13 +141,9 @@ open class ClassMemberCompletionProvider : LuaCompletionProvider() {
         }
     }
 
-    private fun complete(isColon: Boolean,
-                         project: Project,
-                         contextTy: ITy,
-                         prefixType: ITy,
-                         completionResultSet: CompletionResultSet,
-                         prefixMatcher: PrefixMatcher,
-                         handlerProcessor: HandlerProcessor?) {
+    private fun complete(
+        isColon: Boolean, project: Project, contextTy: ITy, prefixType: ITy, completionResultSet: CompletionResultSet, prefixMatcher: PrefixMatcher, handlerProcessor: HandlerProcessor?
+    ) {
         val mode = if (isColon) MemberCompletionMode.Colon else MemberCompletionMode.Dot
         prefixType.eachTopClass(Processor { luaType ->
             addClass(contextTy, luaType, project, mode, completionResultSet, prefixMatcher, handlerProcessor)
@@ -161,57 +151,60 @@ open class ClassMemberCompletionProvider : LuaCompletionProvider() {
         })
     }
 
-    protected fun addClass(contextTy: ITy,
-                           luaType:ITyClass,
-                           project: Project,
-                           completionMode:MemberCompletionMode,
-                           completionResultSet: CompletionResultSet,
-                           prefixMatcher: PrefixMatcher,
-                           handlerProcessor: HandlerProcessor?) {
+    protected fun addClass(
+        contextTy: ITy,
+        luaType: ITyClass,
+        project: Project,
+        completionMode: MemberCompletionMode,
+        completionResultSet: CompletionResultSet,
+        prefixMatcher: PrefixMatcher,
+        handlerProcessor: HandlerProcessor?
+    ) {
         val context = SearchContext.get(project)
         luaType.lazyInit(context)
         luaType.processMembers(context) { curType, member ->
             ProgressManager.checkCanceled()
             member.name?.let {
                 if (prefixMatcher.prefixMatches(it) && curType.isVisibleInScope(project, contextTy, member.visibility)) {
-                    addMember(completionResultSet,
-                            member,
-                            curType,
-                            luaType,
-                            completionMode,
-                            project,
-                            handlerProcessor)
+                    addMember(
+                        completionResultSet, member, curType, luaType, completionMode, project, handlerProcessor
+                    )
                 }
             }
         }
     }
 
-    protected fun addMember(completionResultSet: CompletionResultSet,
-                            member: LuaClassMember,
-                            thisType: ITyClass,
-                            callType: ITyClass,
-                            completionMode: MemberCompletionMode,
-                            project: Project,
-                            handlerProcessor: HandlerProcessor?) {
-        val type = member.guessType(SearchContext.get(project))
+    protected fun addMember(
+        completionResultSet: CompletionResultSet,
+        member: LuaClassMember,
+        thisType: ITyClass,
+        callType: ITyClass,
+        completionMode: MemberCompletionMode,
+        project: Project,
+        handlerProcessor: HandlerProcessor?
+    ) {
+        var type = member.guessType(SearchContext.get(project))
         val bold = thisType == callType
         val className = thisType.displayName
+        if (type is TyUnion) {
+            type.getChildTypes().forEach {
+                if (it is ITyFunction) {
+                    type = it
+                    return@forEach
+                }
+            }
+        }
         if (type is ITyFunction) {
             val fn = type.substitute(TySelfSubstitutor(project, null, callType))
-            if (fn is ITyFunction)
-                addFunction(completionResultSet, bold, completionMode != MemberCompletionMode.Dot, className, member, fn, thisType, callType, handlerProcessor)
+            if (fn is ITyFunction) addFunction(completionResultSet, bold, completionMode != MemberCompletionMode.Dot, className, member, fn, thisType, callType, handlerProcessor)
         } else if (member is LuaClassField) {
-            if (completionMode != MemberCompletionMode.Colon)
-                addField(completionResultSet, bold, className, member, type, handlerProcessor)
+            if (completionMode != MemberCompletionMode.Colon) addField(completionResultSet, bold, className, member, type, handlerProcessor)
         }
     }
 
-    protected fun addField(completionResultSet: CompletionResultSet,
-                           bold: Boolean,
-                           clazzName: String,
-                           field: LuaClassField,
-                           ty:ITy?,
-                           handlerProcessor: HandlerProcessor?) {
+    protected fun addField(
+        completionResultSet: CompletionResultSet, bold: Boolean, clazzName: String, field: LuaClassField, ty: ITy?, handlerProcessor: HandlerProcessor?
+    ) {
         val name = field.name
         if (name != null) {
             this.session?.addWord(name)
@@ -221,15 +214,17 @@ open class ClassMemberCompletionProvider : LuaCompletionProvider() {
         }
     }
 
-    private fun addFunction(completionResultSet: CompletionResultSet,
-                            bold: Boolean,
-                            isColonStyle: Boolean,
-                            clazzName: String,
-                            classMember: LuaClassMember,
-                            fnTy: ITyFunction,
-                            thisType: ITyClass,
-                            callType: ITyClass,
-                            handlerProcessor: HandlerProcessor?) {
+    private fun addFunction(
+        completionResultSet: CompletionResultSet,
+        bold: Boolean,
+        isColonStyle: Boolean,
+        clazzName: String,
+        classMember: LuaClassMember,
+        fnTy: ITyFunction,
+        thisType: ITyClass,
+        callType: ITyClass,
+        handlerProcessor: HandlerProcessor?
+    ) {
         val name = classMember.name
         if (name != null) {
             this.session?.addWord(name)
@@ -238,20 +233,13 @@ open class ClassMemberCompletionProvider : LuaCompletionProvider() {
                 val firstParam = it.getFirstParam(thisType, isColonStyle)
                 if (isColonStyle) {
                     if (firstParam == null) return@Processor true
-                    if (!callType.subTypeOf(firstParam.ty, SearchContext.get(classMember.project), true))
-                        return@Processor true
+                    if (!callType.subTypeOf(firstParam.ty, SearchContext.get(classMember.project), true)) return@Processor true
                 }
 
                 val lookupString = handlerProcessor?.processLookupString(name, classMember, fnTy) ?: name
-
-                val element = LookupElementFactory.createMethodLookupElement(clazzName,
-                        lookupString,
-                        classMember,
-                        it,
-                        bold,
-                        isColonStyle,
-                        fnTy,
-                        LuaIcons.CLASS_METHOD)
+                val element = LookupElementFactory.createMethodLookupElement(
+                    clazzName, lookupString, classMember, it, bold, isColonStyle, fnTy, LuaIcons.CLASS_METHOD
+                )
                 val ele = handlerProcessor?.process(element, classMember, fnTy) ?: element
                 completionResultSet.addElement(ele)
                 true

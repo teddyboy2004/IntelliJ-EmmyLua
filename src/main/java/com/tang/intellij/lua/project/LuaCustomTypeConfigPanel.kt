@@ -21,8 +21,8 @@ import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.ui.IdeBorderFactory
 import com.intellij.ui.ToolbarDecorator
+import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.table.JBTable
-import com.intellij.util.Vector
 import com.tang.intellij.lua.LuaBundle
 import java.awt.BorderLayout
 import java.awt.Component
@@ -62,12 +62,12 @@ class NumericCellEditor : AbstractCellEditor(), TableCellEditor {
 class LuaCustomTypeConfigPanel : JPanel(BorderLayout()) {
     private val returnTypeComboBox = JComboBox(LuaCustomReturnType.values())
     private val handleComboBox = JComboBox(LuaCustomHandleType.values())
-    private val columnNames = arrayOf("Type", "FunctionName", "ReturnType", "ParamIndex", "HandleType", "ExtraParam")
+    private val columnNames = arrayOf("Type", "FunctionName", "ReturnType", "ParamIndex", "HandleType", "ExtraParam", "Break")
     private val defaultTableModel = DefaultTableModel(columnNames, 0)
     private val typeTable = JBTable(defaultTableModel)
 
     init {
-        add(ToolbarDecorator.createDecorator(typeTable)
+        val component = ToolbarDecorator.createDecorator(typeTable)
             .setAddAction { addAction() }
             .setRemoveAction { removeAction() }
             .setMoveUpAction() { moveUpAction() }
@@ -77,11 +77,14 @@ class LuaCustomTypeConfigPanel : JPanel(BorderLayout()) {
                     copyAction()
                 }
             })
-            .createPanel(), BorderLayout.CENTER)
+            .createPanel()
+        add(component, BorderLayout.CENTER)
+        typeTable.autoResizeMode = JTable.AUTO_RESIZE_OFF
         border = IdeBorderFactory.createTitledBorder(LuaBundle.message("ui.settings.custom_type_cfg"), false)
         typeTable.getColumn("ReturnType").cellEditor = DefaultCellEditor(returnTypeComboBox)
         typeTable.getColumn("HandleType").cellEditor = DefaultCellEditor(handleComboBox)
         typeTable.getColumn("ParamIndex").cellEditor = NumericCellEditor()
+        typeTable.getColumn("Break").cellEditor = DefaultCellEditor(JCheckBox())
     }
 
     var roots: Array<LuaCustomTypeConfig>
@@ -90,14 +93,7 @@ class LuaCustomTypeConfigPanel : JPanel(BorderLayout()) {
             val list = mutableListOf<LuaCustomTypeConfig>()
             for (i in 0 until rowCount) {
                 val vector = defaultTableModel.dataVector.get(i)
-                var index = 0
-                val cfg = LuaCustomTypeConfig()
-                cfg.TypeName = vector[index++] as String
-                cfg.FunctionName = vector[index++] as String
-                cfg.ReturnType = vector[index++] as LuaCustomReturnType
-                cfg.ParamIndex = vector[index++] as Int
-                cfg.HandleType = vector[index++] as LuaCustomHandleType
-                cfg.ExtraParam = vector[index++] as String
+                val cfg = LuaCustomTypeConfig.createFromVector(vector)
                 list.add(cfg)
             }
             return list.toTypedArray()
@@ -110,7 +106,7 @@ class LuaCustomTypeConfigPanel : JPanel(BorderLayout()) {
         }
 
     private fun addRow(it: LuaCustomTypeConfig) {
-        defaultTableModel.addRow(arrayOf(it.TypeName, it.FunctionName, it.ReturnType, it.ParamIndex, it.HandleType, it.ExtraParam))
+        defaultTableModel.addRow(it.toArray())
     }
 
     private fun addAction() {
@@ -130,7 +126,7 @@ class LuaCustomTypeConfigPanel : JPanel(BorderLayout()) {
 
     private fun moveUpAction() {
         val index = typeTable.selectedRow
-        if (index > 0){
+        if (index > 0) {
             val toIndex = index - 1
             defaultTableModel.moveRow(index, index, toIndex)
             selectRow(toIndex)

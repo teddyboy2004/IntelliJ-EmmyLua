@@ -16,6 +16,7 @@
 
 package com.tang.intellij.lua.psi
 
+import com.intellij.psi.PsiElement
 import com.intellij.psi.tree.IElementType
 
 data class ComputeResult(val kind: ComputeKind,
@@ -40,6 +41,19 @@ enum class ComputeKind {
 
 class ExpressionUtil {
     companion object {
+        fun getLuaStatement(expr: LuaExpr): PsiElement? {
+            var parent: PsiElement? = expr
+            while (parent != null) {
+                when (parent.parent) {
+                    is LuaBlock -> return parent
+                    is LuaPsiFile -> return parent
+                    else -> {
+                        parent = parent.parent
+                    }
+                }
+            }
+            return null
+        }
 
         fun compute(expr: LuaExpr): ComputeResult? {
             return when (expr) {
@@ -136,4 +150,6 @@ class ExpressionUtil {
             return if (isValid) ComputeResult(k, b, n, s) else null
         }
     }
+
+
 }

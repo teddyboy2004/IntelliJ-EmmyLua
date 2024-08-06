@@ -20,6 +20,7 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.components.State
 import com.intellij.openapi.components.Storage
+import com.intellij.openapi.util.NlsSafe
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.xmlb.XmlSerializerUtil
 import com.tang.intellij.lua.Constants
@@ -31,6 +32,7 @@ import com.tang.intellij.lua.search.SearchContext
 import com.tang.intellij.lua.stubs.index.LuaClassIndex
 import com.tang.intellij.lua.ty.*
 import java.nio.charset.Charset
+import java.util.*
 
 
 // 返回类型
@@ -54,12 +56,13 @@ class LuaCustomTypeConfig {
     var ParamIndex: Int = 0
     var HandleType: LuaCustomHandleType = LuaCustomHandleType.ClassName
     var ExtraParam: String = ""
+    var MatchBreak: Boolean = false
 
     private var typeNameReg: Regex? = null;
     private var funcNameReg: Regex? = null;
 
     fun match(typename: String, funcName: String): Boolean {
-        if (TypeName.isNullOrEmpty() || FunctionName.isNullOrEmpty()) {
+        if (TypeName.isEmpty() || FunctionName.isEmpty()) {
             return false
         }
         try {
@@ -83,12 +86,36 @@ class LuaCustomTypeConfig {
                     cfg.ParamIndex.equals(ParamIndex) &&
                     cfg.HandleType.equals(HandleType) &&
                     cfg.ExtraParam.equals(ExtraParam) &&
+                    cfg.MatchBreak.equals(MatchBreak) &&
                     cfg.ReturnType.equals(ReturnType)
         }
         return super.equals(other)
     }
 
+    fun toArray(): Array<Any> {
+        return arrayOf(TypeName, FunctionName, ReturnType, ParamIndex, HandleType, ExtraParam, MatchBreak)
+    }
 
+    companion object {
+        fun createFromVector(vector: Vector<Any>?): LuaCustomTypeConfig {
+            val cfg = LuaCustomTypeConfig()
+            if (vector == null) {
+                return cfg
+            }
+            try {
+                var index = 0
+                cfg.TypeName = vector[index++] as String
+                cfg.FunctionName = vector[index++] as String
+                cfg.ReturnType = vector[index++] as LuaCustomReturnType
+                cfg.ParamIndex = vector[index++] as Int
+                cfg.HandleType = vector[index++] as LuaCustomHandleType
+                cfg.ExtraParam = vector[index++] as String
+                cfg.MatchBreak = vector[index++] as Boolean
+            } catch (_: Exception) {
+            }
+            return cfg
+        }
+    }
 }
 
 /**
@@ -103,6 +130,17 @@ class LuaSettings : PersistentStateComponent<LuaSettings> {
     var superFieldNames: Array<String> = arrayOf("__super")
 
     var constructorNames: Array<String> = arrayOf("new", "get")
+
+    var unknownTypeGuessRegexStr = "(.*?)_"
+        set(value) {
+            val trim = value.trim()
+            if (trim == field) {
+                return
+            }
+            field = trim
+            unknownTypeGuessRegex = null
+        }
+    private var unknownTypeGuessRegex: List<Regex>? = null
 
     //Doc文档严格模式，对不合法的注解报错
     var isStrictDoc: Boolean = false
@@ -150,9 +188,9 @@ class LuaSettings : PersistentStateComponent<LuaSettings> {
      * Lua language level
      */
     var languageLevel = LuaLanguageLevel.LUA53
-    val StickyLineLevel = listOf(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+    val StickyLineLevel: Vector<Int> = Vector(listOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
     private var _stickyScrollMaxLevel = 5
-    var stickyScrollMaxLevel: Int
+    var stickyScrollMaxLevel
         get() = _stickyScrollMaxLevel
         set(value) {
             if (value != _stickyScrollMaxLevel) {
@@ -218,6 +256,32 @@ class LuaSettings : PersistentStateComponent<LuaSettings> {
             return instance.superFieldNames.contains(name)
         }
 
+        fun getUnknownTypeName(callName: String?): String? {
+            if (callName == null) {
+                return null
+            }
+            if (instance.unknownTypeGuessRegex == null && instance.unknownTypeGuessRegexStr.isNotEmpty()) {
+                val regexes = mutableListOf<Regex>()
+                instance.unknownTypeGuessRegex = regexes
+                instance.unknownTypeGuessRegexStr.split(";").reversed().forEach {
+                    if (it.isBlank()) {
+                        return@forEach
+                    }
+                    try {
+                        regexes.add(it.trim().toRegex(RegexOption.IGNORE_CASE))
+                    } catch (_: Exception) {
+                    }
+                }
+            }
+            instance.unknownTypeGuessRegex?.forEach {
+                val matchResult = it.find(callName)
+                if (matchResult != null && matchResult.groupValues.size > 1) {
+                    return matchResult.groupValues[1]
+                }
+            }
+            return callName
+        }
+
         fun getCustomType(luaCallExpr: LuaCallExpr, context: SearchContext): ITy? {
             if (context.isDumb) {
                 return null
@@ -226,48 +290,61 @@ class LuaSettings : PersistentStateComponent<LuaSettings> {
                 return null
             }
             val expr: LuaExpr = luaCallExpr.getExpr()
+            // a.b()
             if (expr is LuaIndexExpr) {
                 val typeNames = getTypeNamesByLuaIndexExpr(expr)
                 expr.getName()?.let { funcName ->
                     typeNames.forEach {
                         val typeName = it
-                        instance.customTypeCfg.forEach { config ->
-                            // 类型匹配，函数匹配
-                            if (config.match(typeName, funcName)) {
+                        return getCustomType(typeName, funcName, luaCallExpr, context)
+                    }
+                }
+            } else if (expr is LuaNameExpr) {
+                return getCustomType(Constants.WORD_G, expr.text, luaCallExpr, context)
+            }
+            return null
+        }
 
-                                var ty: ITy? = null
-                                val typeStr: String? = getTypeStr(config, luaCallExpr, context)
-                                if (typeStr != null) {
-                                    when (config.HandleType) {
-                                        LuaCustomHandleType.ClassName -> {
-                                            val tagClass = LuaClassIndex.find(typeStr, context)
-                                            if (tagClass != null) {
-                                                ty = tagClass.type
-                                            }
-                                        }
-
-                                        LuaCustomHandleType.Require, LuaCustomHandleType.RequireField -> {
-                                            val luaFile = resolveRequireFile(typeStr, context.project)
-                                            if (luaFile != null) {
-                                                val child = PsiTreeUtil.findChildOfType(luaFile, LuaDocTagClass::class.java)
-                                                if (child?.type != null) {
-                                                    ty = child.type
-                                                }
-                                            }
-                                        }
-                                    }
+        private fun getCustomType(
+            typeName: String,
+            funcName: @NlsSafe String,
+            luaCallExpr: LuaCallExpr,
+            context: SearchContext
+        ): ITy? {
+            instance.customTypeCfg.forEach { config ->
+                // 类型匹配，函数匹配
+                if (config.match(typeName, funcName)) {
+                    var ty: ITy? = null
+                    val typeStr: String? = getTypeStr(config, luaCallExpr, context)
+                    if (typeStr != null) {
+                        when (config.HandleType) {
+                            LuaCustomHandleType.ClassName -> {
+                                val tagClass = LuaClassIndex.find(typeStr, context)
+                                if (tagClass != null) {
+                                    ty = tagClass.type
                                 }
-                                if (ty != null) {
-                                    return when (config.ReturnType) {
-                                        LuaCustomReturnType.Type -> ty
-                                        LuaCustomReturnType.TypeArray -> TyArray(ty!!)
+                            }
+
+                            LuaCustomHandleType.Require, LuaCustomHandleType.RequireField -> {
+                                val luaFile = resolveRequireFile(typeStr, context.project)
+                                if (luaFile != null) {
+                                    val child = PsiTreeUtil.findChildOfType(luaFile, LuaDocTagClass::class.java)
+                                    if (child?.type != null) {
+                                        ty = child.type
                                     }
                                 }
                             }
                         }
                     }
+                    if (ty != null) {
+                        return when (config.ReturnType) {
+                            LuaCustomReturnType.Type -> ty
+                            LuaCustomReturnType.TypeArray -> TyArray(ty)
+                        }
+                    } else if (config.MatchBreak) {
+                        return Ty.UNKNOWN
+                    }
                 }
-
             }
             return null
         }
@@ -296,14 +373,32 @@ class LuaSettings : PersistentStateComponent<LuaSettings> {
             val parentType = expr.guessParentType(context)
             if (parentType is TyUnion) {
                 parentType.getChildTypes().forEach {
-                    if (it is TyClass) {
-                        typeNames.add(it.varName)
-                    }
+                    addTypeName(it, typeNames, context)
                 }
-            } else if (parentType is TyClass) {
-                typeNames.add(parentType.varName)
+            } else {
+                addTypeName(parentType, typeNames, context)
             }
             return typeNames
+        }
+
+        private fun addTypeName(cls: ITy, typeNames: MutableSet<String>, context: SearchContext) {
+            if (cls is TyTable) {
+                typeNames.add(cls.displayName)
+            } else if (cls is ITyClass) {
+                val className = cls.className
+                if (className.isNotBlank()) {
+                    if (className.startsWith('$')) {
+                        typeNames.add(className.substring(1))
+                    } else if (!className.contains('@')) {
+                        typeNames.add(className)
+                    }
+                }
+                val superClass = cls.getSuperClass(context)
+                if (superClass is TyClass) {
+                    addTypeName(superClass, typeNames, context)
+                }
+            }
+
         }
 
         private fun getTypeStr(cfg: LuaCustomTypeConfig, luaCallExpr: LuaCallExpr, context: SearchContext): String? {

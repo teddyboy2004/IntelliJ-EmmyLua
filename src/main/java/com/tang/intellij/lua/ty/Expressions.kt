@@ -357,7 +357,7 @@ fun LuaLiteralExpr.infer(): ITy {
             val o = PsiTreeUtil.getParentOfType(this, LuaFuncBodyOwner::class.java)
             o?.varargType ?: Ty.UNKNOWN
         }
-        //LuaLiteralKind.Nil -> Ty.NIL
+        LuaLiteralKind.Nil -> Ty.NIL
         else -> Ty.UNKNOWN
     }
 }
@@ -381,6 +381,19 @@ private fun LuaIndexExpr.infer(context: SearchContext): ITy {
             TyUnion.each(tySet) {
                 if (it is ITyGeneric) ty = ty.union(it.getParamTy(1))
             }
+            if (ty !is TyUnknown) return@Computable ty
+
+            // 增加table[1]相关判断
+            var indexTy: ITy = Ty.UNKNOWN
+            indexExpr.exprList.last()?.let { indexTy = inferExpr(it, context) }
+            if (indexTy is TyPrimitiveLiteral && (indexTy as TyPrimitiveLiteral).primitiveKind == TyPrimitiveKind.Number) {
+                TyUnion.each(tySet) {
+                    if (it is TyTable) {
+                        it.table.findField(indexTy.displayName)?.let { field -> ty = field.guessType(context)}
+                    }
+                }
+            }
+
             if (ty !is TyUnknown) return@Computable ty
 
             parentTy = tySet

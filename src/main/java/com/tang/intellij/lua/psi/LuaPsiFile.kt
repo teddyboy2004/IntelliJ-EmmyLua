@@ -22,6 +22,7 @@ import com.intellij.openapi.util.Key
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.psi.FileViewProvider
 import com.intellij.psi.PsiElement
+import com.intellij.psi.stubs.StubElement
 import com.intellij.psi.util.CachedValue
 import com.intellij.psi.util.CachedValueProvider
 import com.intellij.psi.util.CachedValuesManager
@@ -66,13 +67,17 @@ open class LuaPsiFile(fileViewProvider: FileViewProvider) : PsiFileBase(fileView
 
     val moduleName: String?
         get() {
-            // 这里经常报异常，先跳过
-            if (LuaSettings.instance.isSkipModuleName) {
-                return null
-            }
             val stub = stub as? LuaFileStub
             return if (stub != null) stub.module else findCachedModuleName()
         }
+
+    override fun getStub(): StubElement<*>? {
+        if (LuaSettings.instance.isSkipModuleName)
+        {
+            return null
+        }
+        return super.getStub()
+    }
 
     /**
      * Lua language version
