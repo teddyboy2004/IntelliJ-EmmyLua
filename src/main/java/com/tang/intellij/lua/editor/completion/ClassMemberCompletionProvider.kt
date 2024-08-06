@@ -24,6 +24,7 @@ import com.intellij.codeInsight.lookup.LookupElement
 import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
+import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.Processor
 import com.tang.intellij.lua.Constants
 import com.tang.intellij.lua.lang.LuaIcons
@@ -194,9 +195,22 @@ open class ClassMemberCompletionProvider : LuaCompletionProvider() {
                 }
             }
         }
+
+        var isDefineFunc = true
         if (type is ITyFunction) {
+            // 如果是定义那里直接设置为function 那就直接显示有函数
+            PsiTreeUtil.getParentOfType(member.originalElement, LuaAssignStat::class.java)?.let { assignStat ->
+                if (assignStat.valueExprList?.exprList?.first() !is LuaClosureExpr) {
+                    isDefineFunc = false
+                }
+            }
+        }
+
+        if (isDefineFunc && type is ITyFunction) {
             val fn = type.substitute(TySelfSubstitutor(project, null, callType))
-            if (fn is ITyFunction) addFunction(completionResultSet, bold, completionMode != MemberCompletionMode.Dot, className, member, fn, thisType, callType, handlerProcessor)
+            if (fn is ITyFunction) {
+                addFunction(completionResultSet, bold, completionMode != MemberCompletionMode.Dot, className, member, fn, thisType, callType, handlerProcessor)
+            }
         } else if (member is LuaClassField) {
             if (completionMode != MemberCompletionMode.Colon) addField(completionResultSet, bold, className, member, type, handlerProcessor)
         }
