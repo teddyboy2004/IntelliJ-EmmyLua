@@ -245,7 +245,7 @@ class SuggestFirstLuaVarNameMacro : Macro() {
             }
             if (type is TyClass) {
                 val className = type.className
-                if (!className.contains("@") && ! className.contains("|")) {
+                if (!className.contains("@") && ! className.contains("|") && ! className.contains("$")) {
                     return className.replace(Regex(".*\\."), "")
                 } else {
                     val superType = type.getSuperClass(context)

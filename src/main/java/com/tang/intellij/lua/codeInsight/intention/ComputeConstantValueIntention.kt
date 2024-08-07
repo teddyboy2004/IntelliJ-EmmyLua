@@ -27,7 +27,7 @@ class ComputeConstantValueIntention : BaseIntentionAction() {
 
     override fun isAvailable(project: Project, editor: Editor, psiFile: PsiFile): Boolean {
         val expr = LuaPsiTreeUtil.findElementOfClassAtOffset(psiFile, editor.caretModel.offset, LuaExpr::class.java, false)
-        if (expr is LuaBinaryExpr) {
+        if (expr is LuaBinaryExpr && SplitIfConditionIntention.getIfStat(expr) == null) {
             val result = ExpressionUtil.compute(expr)
             text = "Compute constant value of ${expr.text}"
             return result != null
@@ -47,10 +47,12 @@ class ComputeConstantValueIntention : BaseIntentionAction() {
                         val new = LuaElementFactory.createLiteral(project, result.string)
                         expr.replace(new)
                     }
+
                     ComputeKind.String -> {
                         val new = LuaElementFactory.createLiteral(project, "[[${result.string}]]")
                         expr.replace(new)
                     }
+
                     ComputeKind.Other -> {
                         result.expr?.let { expr.replace(it) }
                     }

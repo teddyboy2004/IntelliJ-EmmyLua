@@ -180,6 +180,11 @@
         <intentionAction>
             <language>Lua</language>
             <category>Lua</category>
+            <className>com.tang.intellij.lua.codeInsight.intention.SplitIfConditionIntention</className>
+        </intentionAction>
+        <intentionAction>
+            <language>Lua</language>
+            <category>Lua</category>
             <className>com.tang.intellij.lua.codeInsight.intention.CreateParameterAnnotationIntention</className>
             <descriptionDirectoryName>CreateParameterAnnotationIntention</descriptionDirectoryName>
         </intentionAction>
