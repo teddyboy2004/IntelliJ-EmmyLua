@@ -17,6 +17,7 @@
 package com.tang.intellij.lua.documentation
 
 import com.intellij.codeInsight.documentation.DocumentationManagerUtil
+import com.intellij.lang.documentation.DocumentationMarkup
 import com.intellij.psi.PsiComment
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
@@ -67,7 +68,7 @@ fun renderComment(sb: StringBuilder, commentOwner: LuaCommentOwner, tyRenderer: 
         sb.append("<div class='content'>")
         val docStrBuilder = StringBuilder()
         val flushDocString = {
-            sb.append(markdownToHtml(docStrBuilder.toString()))
+            sb.append((docStrBuilder.toString()))
             docStrBuilder.setLength(0)
         }
         var seenString = false
@@ -79,7 +80,7 @@ fun renderComment(sb: StringBuilder, commentOwner: LuaCommentOwner, tyRenderer: 
             }
             else if (elementType == LuaDocTypes.DASHES) {
                 if (seenString) {
-                    docStrBuilder.append("\n")
+                    docStrBuilder.append("<br>")
                 }
             }
             else if (child is LuaDocPsiElement) {

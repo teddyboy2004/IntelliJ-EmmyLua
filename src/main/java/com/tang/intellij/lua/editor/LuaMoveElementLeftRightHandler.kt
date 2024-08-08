@@ -36,11 +36,18 @@ class LuaMoveElementLeftRightHandler : MoveElementLeftRightHandler() {
             }
 
             is LuaBinaryExpr -> {
-                getBinaryExprSubElements(element)
+                getBinaryExprSubElements(getTopBinaryExpr(element))
             }
 
             else -> PsiElement.EMPTY_ARRAY
         }
+    }
+
+    private fun getTopBinaryExpr(element: LuaBinaryExpr): LuaBinaryExpr {
+        if (element.parent is LuaBinaryExpr) {
+            return getTopBinaryExpr(element.parent as LuaBinaryExpr)
+        }
+        return element
     }
 
     private fun getLuaListArgs(element: LuaListArgs): Array<PsiElement> {
@@ -65,7 +72,7 @@ class LuaMoveElementLeftRightHandler : MoveElementLeftRightHandler() {
         if (element == null) {
             return
         }
-        if (element is LuaBinaryExpr) {
+        if (element is LuaBinaryExpr && element.binaryOp.node.firstChildNode.elementType != LuaTypes.EQ) {
             addBinarySubElements(element.left, list)
             addBinarySubElements(element.right, list)
         } else {

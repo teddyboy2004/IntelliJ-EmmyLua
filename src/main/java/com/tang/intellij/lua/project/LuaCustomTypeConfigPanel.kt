@@ -21,7 +21,6 @@ import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.ui.IdeBorderFactory
 import com.intellij.ui.ToolbarDecorator
-import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.table.JBTable
 import com.tang.intellij.lua.LuaBundle
 import java.awt.BorderLayout
@@ -31,6 +30,7 @@ import java.awt.event.KeyEvent
 import javax.swing.*
 import javax.swing.table.DefaultTableModel
 import javax.swing.table.TableCellEditor
+import javax.swing.table.TableCellRenderer
 
 
 class NumericCellEditor : AbstractCellEditor(), TableCellEditor {
@@ -58,11 +58,34 @@ class NumericCellEditor : AbstractCellEditor(), TableCellEditor {
     }
 }
 
+class CheckBoxRenderer : JCheckBox(), TableCellRenderer {
+    override fun getTableCellRendererComponent(table: JTable?, value: Any?, isSelected: Boolean, hasFocus: Boolean, row: Int, column: Int): Component {
+        if (table == null) {
+            return this
+        }
+        var isSelected = isSelected
+        isSelected = isSelected || (value as Boolean)
+        isSelected = isSelected && !hasFocus
+        isSelected = isSelected && (table.isCellSelected(row, 0))
+
+        isSelected = isSelected || (value as Boolean)
+        isSelected = isSelected && !hasFocus
+
+        isSelected = isSelected || (value as Boolean)
+
+        this.isSelected = value as Boolean
+        background = if (isSelected) table.selectionBackground else table.background
+        foreground = if (isSelected) table.selectionForeground else table.foreground
+
+        return this
+    }
+
+}
 
 class LuaCustomTypeConfigPanel : JPanel(BorderLayout()) {
     private val returnTypeComboBox = JComboBox(LuaCustomReturnType.values())
     private val handleComboBox = JComboBox(LuaCustomHandleType.values())
-    private val columnNames = arrayOf("Type", "FunctionName", "ReturnType", "ParamIndex", "HandleType", "ExtraParam", "Break")
+    private val columnNames = LuaCustomTypeConfig.ColumnNames
     private val defaultTableModel = DefaultTableModel(columnNames, 0)
     private val typeTable = JBTable(defaultTableModel)
 
@@ -79,12 +102,27 @@ class LuaCustomTypeConfigPanel : JPanel(BorderLayout()) {
             })
             .createPanel()
         add(component, BorderLayout.CENTER)
-        typeTable.autoResizeMode = JTable.AUTO_RESIZE_OFF
+//        typeTable.autoResizeMode = JBTable.AUTO_RESIZE_OFF
+//        columnNames.forEach {
+//            val column = typeTable.getColumn(it)
+//            column.minWidth = 150
+//        }
         border = IdeBorderFactory.createTitledBorder(LuaBundle.message("ui.settings.custom_type_cfg"), false)
         typeTable.getColumn("ReturnType").cellEditor = DefaultCellEditor(returnTypeComboBox)
         typeTable.getColumn("HandleType").cellEditor = DefaultCellEditor(handleComboBox)
-        typeTable.getColumn("ParamIndex").cellEditor = NumericCellEditor()
-        typeTable.getColumn("Break").cellEditor = DefaultCellEditor(JCheckBox())
+        setTableNumericCell("ParamIndex")
+        setTableCheckbox("Break")
+    }
+
+    private fun setTableNumericCell(columnName: String) {
+        val column = typeTable.getColumn(columnName) ?: return
+        column.cellEditor = NumericCellEditor()
+    }
+
+    private fun setTableCheckbox(columnName: String) {
+        val column = typeTable.getColumn(columnName) ?: return
+        column.cellRenderer = CheckBoxRenderer()
+        column.cellEditor = DefaultCellEditor(JCheckBox())
     }
 
     var roots: Array<LuaCustomTypeConfig>

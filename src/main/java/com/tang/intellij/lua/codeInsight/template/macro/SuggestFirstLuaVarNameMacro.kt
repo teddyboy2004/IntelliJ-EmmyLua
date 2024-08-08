@@ -216,15 +216,13 @@ class SuggestFirstLuaVarNameMacro : Macro() {
             if (file == null) {
                 return null
             }
-            val child = PsiTreeUtil.findChildOfType(file, LuaDocTagClass::class.java)
-            if (child != null && !LuaNameSuggestionProvider.isKeyword(child.name)) {
-                return child.name
+            val element = file.guessFileElement()
+
+            return when {
+                element is LuaDocTagClass -> element.name
+                element != null -> element.text
+                else -> ""
             }
-            val returnText = file.returnStatement()?.exprList?.text
-            if (returnText != null && !LuaNameSuggestionProvider.isKeyword(returnText)) {
-                return returnText
-            }
-            return ""
         }
 
         // 根据类型判断文件名
@@ -245,7 +243,7 @@ class SuggestFirstLuaVarNameMacro : Macro() {
             }
             if (type is TyClass) {
                 val className = type.className
-                if (!className.contains("@") && ! className.contains("|") && ! className.contains("$")) {
+                if (!className.contains("@") && !className.contains("|") && !className.contains("$")) {
                     return className.replace(Regex(".*\\."), "")
                 } else {
                     val superType = type.getSuperClass(context)

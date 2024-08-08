@@ -20,10 +20,12 @@ import com.intellij.openapi.project.Project
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.ProjectAndLibrariesScope
 import com.intellij.psi.stubs.StringStubIndexExtension
+import com.intellij.psi.stubs.StubIndex
 import com.intellij.util.Processor
 import com.intellij.util.containers.ContainerUtil
 import com.tang.intellij.lua.comment.psi.LuaDocTagClass
 import com.tang.intellij.lua.lang.LuaLanguage
+import com.tang.intellij.lua.project.LuaSettings
 import com.tang.intellij.lua.search.SearchContext
 import com.tang.intellij.lua.ty.TyClass
 
@@ -63,12 +65,16 @@ class LuaClassIndex : StringStubIndexExtension<LuaDocTagClass>() {
         }
 
         fun processKeys(project: Project, processor: Processor<String>): Boolean {
-            val scope = ProjectAndLibrariesScope(project)
-            val allKeys = instance.getAllKeys(project)
-            for (key in allKeys) {
-                val ret = process(key, project, scope, Processor { false })
-                if (!ret && !processor.process(key))
-                    return false
+            if (LuaSettings.instance.isOptimizeClassProcess) {
+                instance.processAllKeys(project, processor)
+            } else {
+                val allKeys = instance.getAllKeys(project)
+                val scope = ProjectAndLibrariesScope(project)
+                for (key in allKeys) {
+                    val ret = process(key, project, scope, Processor { false })
+                    if (!ret && !processor.process(key))
+                        return false
+                }
             }
             return true
         }

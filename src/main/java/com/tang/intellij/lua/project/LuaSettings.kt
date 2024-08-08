@@ -41,10 +41,73 @@ enum class LuaCustomReturnType {
     TypeArray, // 类型数组
 }
 
-enum class LuaCustomHandleType {
-    ClassName, // 参数为类名
-    Require, // Require对应类
-    RequireField, // RequireField
+enum class LuaCustomHandleType(val bit: Int) {
+    ClassName(1 shl 0), // 参数为类名
+    Require(1 shl 1), // Require对应类
+    RequireField(1 shl 2), // RequireField
+}
+
+class LuaCustomParamConfig {
+    var TypeName: String = ""
+    var FunctionName: String = ""
+    var ConvertFunctionName: String = ""
+
+    var ParameterOffset: Int = 0
+
+    private var typeNameReg: Regex? = null;
+    private var funcNameReg: Regex? = null;
+
+    fun match(typename: String, funcName: String): Boolean {
+        if (TypeName.isEmpty() || FunctionName.isEmpty()) {
+            return false
+        }
+        try {
+            if (typeNameReg == null) {
+                typeNameReg = Regex(TypeName, RegexOption.IGNORE_CASE)
+            }
+            if (funcNameReg == null) {
+                funcNameReg = Regex(FunctionName, RegexOption.IGNORE_CASE)
+            }
+        } catch (e: Exception) {
+            return false
+        }
+        return typeNameReg!!.matches(typename) && funcNameReg!!.matches(funcName)
+    }
+
+    override fun equals(other: Any?): Boolean {
+        val cfg = other as LuaCustomParamConfig?
+        if (cfg != null) {
+            return cfg.TypeName == TypeName &&
+                    cfg.FunctionName == FunctionName &&
+                    cfg.ConvertFunctionName == ConvertFunctionName &&
+                    cfg.ParameterOffset == ParameterOffset
+        }
+        return super.equals(other)
+    }
+
+    fun toArray(): Array<Any> {
+        return arrayOf(TypeName, FunctionName, ConvertFunctionName, ParameterOffset)
+    }
+
+    companion object {
+        val ColumnNames = arrayOf("Type", "FunctionName", "ConvertFunctionName", "ParameterOffset")
+
+        fun createFromVector(vector: Vector<Any>?): LuaCustomParamConfig {
+            val cfg = LuaCustomParamConfig()
+            if (vector == null) {
+                return cfg
+            }
+            try {
+                var index = 0
+                cfg.TypeName = vector[index++] as String
+                cfg.FunctionName = vector[index++] as String
+                cfg.ConvertFunctionName = vector[index++] as String
+                cfg.ParameterOffset = vector[index++] as Int
+            } catch (_: Exception) {
+            }
+            return cfg
+        }
+    }
 }
 
 // 自定义返回类型设置
@@ -57,6 +120,7 @@ class LuaCustomTypeConfig {
     var HandleType: LuaCustomHandleType = LuaCustomHandleType.ClassName
     var ExtraParam: String = ""
     var MatchBreak: Boolean = false
+
 
     private var typeNameReg: Regex? = null;
     private var funcNameReg: Regex? = null;
@@ -81,13 +145,13 @@ class LuaCustomTypeConfig {
     override fun equals(other: Any?): Boolean {
         val cfg = other as LuaCustomTypeConfig?
         if (cfg != null) {
-            return cfg.TypeName.equals(TypeName) &&
-                    cfg.FunctionName.equals(FunctionName) &&
-                    cfg.ParamIndex.equals(ParamIndex) &&
-                    cfg.HandleType.equals(HandleType) &&
-                    cfg.ExtraParam.equals(ExtraParam) &&
-                    cfg.MatchBreak.equals(MatchBreak) &&
-                    cfg.ReturnType.equals(ReturnType)
+            return cfg.TypeName == TypeName &&
+                    cfg.FunctionName == FunctionName &&
+                    cfg.ParamIndex == ParamIndex &&
+                    cfg.HandleType == HandleType &&
+                    cfg.ExtraParam == ExtraParam &&
+                    cfg.MatchBreak == MatchBreak &&
+                    cfg.ReturnType == ReturnType
         }
         return super.equals(other)
     }
@@ -97,6 +161,8 @@ class LuaCustomTypeConfig {
     }
 
     companion object {
+        val ColumnNames = arrayOf("Type", "FunctionName", "ReturnType", "ParamIndex", "HandleType", "ExtraParam", "Break")
+
         fun createFromVector(vector: Vector<Any>?): LuaCustomTypeConfig {
             val cfg = LuaCustomTypeConfig()
             if (vector == null) {
@@ -166,7 +232,12 @@ class LuaSettings : PersistentStateComponent<LuaSettings> {
 
     var customTypeCfg = arrayOf<LuaCustomTypeConfig>()
 
-    var isSkipModuleName = true
+    var customParamCfg = arrayOf<LuaCustomParamConfig>()
+
+    var isSkipModuleName = true // 跳过moduleName，这样能避免一些卡死和报错
+
+    var isOptimizeClassProcess = true // 优化处理Class和Alias
+
 
     /**
      * 使用泛型
@@ -306,10 +377,7 @@ class LuaSettings : PersistentStateComponent<LuaSettings> {
         }
 
         private fun getCustomType(
-            typeName: String,
-            funcName: @NlsSafe String,
-            luaCallExpr: LuaCallExpr,
-            context: SearchContext
+            typeName: String, funcName: @NlsSafe String, luaCallExpr: LuaCallExpr, context: SearchContext
         ): ITy? {
             instance.customTypeCfg.forEach { config ->
                 // 类型匹配，函数匹配
@@ -328,9 +396,11 @@ class LuaSettings : PersistentStateComponent<LuaSettings> {
                             LuaCustomHandleType.Require, LuaCustomHandleType.RequireField -> {
                                 val luaFile = resolveRequireFile(typeStr, context.project)
                                 if (luaFile != null) {
-                                    val child = PsiTreeUtil.findChildOfType(luaFile, LuaDocTagClass::class.java)
-                                    if (child?.type != null) {
-                                        ty = child.type
+                                    when (val element = luaFile.guessFileElement()) {
+                                        is LuaDocTagClass -> ty = element.type
+                                        is LuaTypeGuessable -> {
+                                            ty = element.guessType(context)
+                                        }
                                     }
                                 }
                             }
@@ -350,21 +420,59 @@ class LuaSettings : PersistentStateComponent<LuaSettings> {
         }
 
         fun isCustomHandleType(luaCallExpr: LuaCallExpr, paramIndex: Int, handleType: LuaCustomHandleType): Boolean {
+            return getCustomHandleType(luaCallExpr, paramIndex, handleType.bit) != null
+        }
+
+        fun getCustomHandleType(luaCallExpr: LuaCallExpr, paramIndex: Int, handleType: Int): LuaCustomTypeConfig? {
             val expr: LuaExpr = luaCallExpr.getExpr()
+            var typeNames: Collection<String> = emptyList()
+            var functionName = ""
             if (expr is LuaIndexExpr) {
-                val typeNames = getTypeNamesByLuaIndexExpr(expr)
+                typeNames = getTypeNamesByLuaIndexExpr(expr)
                 expr.getName()?.let { funcName ->
-                    typeNames.forEach { typeName: String ->
-                        instance.customTypeCfg.forEach {
-                            if (it.HandleType == handleType && it.ParamIndex == paramIndex && it.match(typeName, funcName)) {
-                                return true
-                            }
+                    functionName = funcName
+                }
+            } else if (expr is LuaNameExpr) {
+                typeNames = listOf("_G")
+                functionName = expr.text
+            }
+            // paramIndex 为 -1 表现不判断特定Index
+            if (functionName.isNotEmpty()) {
+                typeNames.forEach { typeName: String ->
+                    instance.customTypeCfg.forEach {
+                        if ((it.HandleType.bit and handleType) != 0 && (it.ParamIndex == paramIndex || paramIndex == -1) && it.match(typeName, functionName)) {
+                            return it
                         }
                     }
                 }
-
             }
-            return false
+            return null
+        }
+
+        fun getCustomParam(luaCallExpr: LuaCallExpr): LuaCustomParamConfig? {
+            val expr: LuaExpr = luaCallExpr.getExpr()
+            var typeNames: Collection<String> = emptyList()
+            var functionName = ""
+            if (expr is LuaIndexExpr) {
+                typeNames = getTypeNamesByLuaIndexExpr(expr)
+                expr.getName()?.let { funcName ->
+                    functionName = funcName
+                }
+            } else if (expr is LuaNameExpr) {
+                typeNames = listOf("_G")
+                functionName = expr.text
+            }
+            // paramIndex 为 -1 表现不判断特定Index
+            if (functionName.isNotEmpty()) {
+                typeNames.forEach { typeName: String ->
+                    instance.customParamCfg.forEach {
+                        if (it.match(typeName, functionName)) {
+                            return it
+                        }
+                    }
+                }
+            }
+            return null
         }
 
         private fun getTypeNamesByLuaIndexExpr(expr: LuaIndexExpr): Collection<String> {

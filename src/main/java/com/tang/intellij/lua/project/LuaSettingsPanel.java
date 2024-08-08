@@ -58,9 +58,11 @@ public class LuaSettingsPanel implements SearchableConfigurable{
     private JTextField tooLargerFileThreshold;
     private JTextField superFieldNames;
     private LuaCustomTypeConfigPanel typePanel;
+    private LuaCustomParamConfigPanel paramPanel;
     private JComboBox<Integer> stickyLineComboBox;
     private JCheckBox enableSkipModuleNameCheckBox;
     private JTextField unknownTypeGuessRegexStr;
+    private JCheckBox isOptimizeProcessClass;
 
     public LuaSettingsPanel() {
         this.settings = LuaSettings.Companion.getInstance();
@@ -73,8 +75,10 @@ public class LuaSettingsPanel implements SearchableConfigurable{
         recognizeGlobalNameAsCheckBox.setSelected(settings.isRecognizeGlobalNameAsType());
         additionalRoots.setRoots(settings.getAdditionalSourcesRoot());
         typePanel.setRoots(settings.getCustomTypeCfg());
+        paramPanel.setRoots(settings.getCustomParamCfg());
         enableGenericCheckBox.setSelected(settings.getEnableGeneric());
         enableSkipModuleNameCheckBox.setSelected(settings.isSkipModuleName());
+        isOptimizeProcessClass.setSelected(settings.isOptimizeClassProcess());
         requireFunctionNames.setText(settings.getRequireLikeFunctionNamesString());
         unknownTypeGuessRegexStr.setText(settings.getUnknownTypeGuessRegexStr());
         superFieldNames.setText(settings.getSuperFieldNamesString());
@@ -134,13 +138,15 @@ public class LuaSettingsPanel implements SearchableConfigurable{
                 settings.isRecognizeGlobalNameAsType() != recognizeGlobalNameAsCheckBox.isSelected() ||
                 settings.getEnableGeneric() != enableGenericCheckBox.isSelected() ||
                 settings.isSkipModuleName() != enableSkipModuleNameCheckBox.isSelected() ||
+                settings.isOptimizeClassProcess() != isOptimizeProcessClass.isSelected() ||
                 settings.getAttachDebugCaptureOutput() != captureOutputDebugString.isSelected() ||
                 settings.getAttachDebugCaptureStd() != captureStd.isSelected() ||
                 settings.getAttachDebugDefaultCharsetName() != defaultCharset.getSelectedItem() ||
                 settings.getLanguageLevel() != languageLevel.getSelectedItem() ||
                 !Objects.equals(stickyLineComboBox.getSelectedItem(), settings.getStickyScrollMaxLevel()) ||
                 !Arrays.equals(settings.getAdditionalSourcesRoot(), additionalRoots.getRoots(), String::compareTo) ||
-                !Arrays.equals(settings.getCustomTypeCfg(), typePanel.getRoots());
+                !Arrays.equals(settings.getCustomTypeCfg(), typePanel.getRoots())||
+                !Arrays.equals(settings.getCustomParamCfg(), paramPanel.getRoots());
     }
 
     @Override
@@ -162,8 +168,10 @@ public class LuaSettingsPanel implements SearchableConfigurable{
         settings.setRecognizeGlobalNameAsType(recognizeGlobalNameAsCheckBox.isSelected());
         settings.setAdditionalSourcesRoot(additionalRoots.getRoots());
         settings.setCustomTypeCfg(typePanel.getRoots());
+        settings.setCustomParamCfg(paramPanel.getRoots());
         settings.setEnableGeneric(enableGenericCheckBox.isSelected());
         settings.setSkipModuleName(enableSkipModuleNameCheckBox.isSelected());
+        settings.setOptimizeClassProcess(isOptimizeProcessClass.isSelected());
         settings.setAttachDebugCaptureOutput(captureOutputDebugString.isSelected());
         settings.setAttachDebugCaptureStd(captureStd.isSelected());
         settings.setAttachDebugDefaultCharsetName((String) Objects.requireNonNull(defaultCharset.getSelectedItem()));

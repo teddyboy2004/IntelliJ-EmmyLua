@@ -28,6 +28,8 @@ import com.tang.intellij.lua.psi.LuaTableExpr
 import com.tang.intellij.lua.psi.shouldBe
 import com.tang.intellij.lua.search.SearchContext
 import com.tang.intellij.lua.ty.ITy
+import com.tang.intellij.lua.ty.TyTable
+import com.tang.intellij.lua.ty.TyUnion
 
 class TableCompletionProvider : ClassMemberCompletionProvider() {
 
@@ -55,40 +57,57 @@ class TableCompletionProvider : ClassMemberCompletionProvider() {
     override fun addCompletions(session: CompletionSession) {
         val completionParameters = session.parameters
         val completionResultSet = session.resultSet
-        metaMethodNames.forEach {
-            val b = LookupElementBuilder.create(it.key)
-                    .withTypeText(it.value)
-                    .withIcon(LuaIcons.META_METHOD)
-            completionResultSet.addElement(b)
-        }
 
         val table = PsiTreeUtil.getParentOfType(completionParameters.position, LuaTableExpr::class.java)
         if (table != null) {
             val project = table.project
             val prefixMatcher = completionResultSet.prefixMatcher
-            val ty = table.shouldBe(SearchContext.get(project))
-            ty.eachTopClass(Processor { luaType ->
+
+            val context = SearchContext.get(project)
+            val ty = table.shouldBe(context)
+            // 记录一下已经有的成员，可以不提示
+            val set = HashSet<String>()
+            val type = table.guessType(context)
+            TyUnion.each(type){
+                if (it is TyTable) {
+                    it.processMembers(context, { curType, member ->
+                        if (member.name != null) {
+                            set.add(member.name!!)
+                        }
+                        true
+                    }, false)
+                }
+            }
+
+            ty.eachTopClass { luaType ->
                 val context = SearchContext.get(project)
                 luaType.lazyInit(context)
                 luaType.processMembers(context) { curType, member ->
                     member.name?.let {
-                        if (prefixMatcher.prefixMatches(it)) {
+                        if (prefixMatcher.prefix == "" ||prefixMatcher.prefixMatches(it)) {
                             val className = curType.displayName
                             if (member is LuaClassField) {
-                                addField(completionResultSet, curType === luaType, className, member, null, object : HandlerProcessor() {
-                                    override fun process(element: LuaLookupElement, member: LuaClassMember, memberTy: ITy?): LookupElement {
-                                        element.itemText = element.itemText + " = "
-                                        element.lookupString = element.lookupString + " = "
-
-                                        return PrioritizedLookupElement.withPriority(element, 10.0)
-                                    }
-                                })
+                                if (member.name != null && set.add(member.name!!)) {
+                                    addField(completionResultSet, curType === luaType, className, member, null, object : HandlerProcessor() {
+                                        override fun process(element: LuaLookupElement, member: LuaClassMember, memberTy: ITy?): LookupElement {
+                                            element.itemText += " = "
+                                            element.lookupString += " = "
+                                            return PrioritizedLookupElement.withPriority(element, 10.0)
+                                        }
+                                    })
+                                }
                             }
                         }
                     }
                 }
                 true
-            })
+            }
+        }
+        metaMethodNames.forEach {
+            val b = LookupElementBuilder.create(it.key)
+                .withTypeText(it.value)
+                .withIcon(LuaIcons.META_METHOD)
+            completionResultSet.addElement(b)
         }
     }
 }

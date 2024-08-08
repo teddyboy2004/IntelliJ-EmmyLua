@@ -19,33 +19,52 @@ package com.tang.intellij.lua.codeInsight
 import com.intellij.lang.parameterInfo.*
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.Processor
-import com.tang.intellij.lua.psi.LuaArgs
-import com.tang.intellij.lua.psi.LuaCallExpr
-import com.tang.intellij.lua.psi.LuaListArgs
-import com.tang.intellij.lua.psi.LuaTypes
+import com.tang.intellij.lua.project.LuaSettings
+import com.tang.intellij.lua.psi.*
 import com.tang.intellij.lua.search.SearchContext
 import com.tang.intellij.lua.ty.*
 
-data class ParameterInfoType(val sig: IFunSignature, val isColonStyle: Boolean)
+data class ParameterInfoType(val sig: IFunSignature, val isColonStyle: Boolean, val paramOffset: Int, val extraSig: IFunSignature?)
 
 /**
  *
  * Created by tangzx on 2016/12/25.
  */
 class LuaParameterInfoHandler : ParameterInfoHandler<LuaArgs, ParameterInfoType> {
+    var start: Int = 0
+    var end: Int = 0
+
     override fun findElementForParameterInfo(context: CreateParameterInfoContext): LuaArgs? {
         val file = context.file
         val luaArgs = PsiTreeUtil.findElementOfClassAtOffset(file, context.offset, LuaArgs::class.java, false)
         if (luaArgs != null) {
             val callExpr = luaArgs.parent as LuaCallExpr
             val isColonStyle = callExpr.isMethodColonCall
-            val type = callExpr.guessParentType(SearchContext.get(context.project))
+            val searchContext = SearchContext.get(context.project)
+            val type = callExpr.guessParentType(searchContext)
             val list = mutableListOf<ParameterInfoType>()
+            var paramOffset = -1
+            var extraSig: IFunSignature? = null
+            LuaSettings.getCustomParam(callExpr)?.let {
+                val guessType = callExpr.guessType(searchContext)
+                TyUnion.each(guessType) { ty ->
+                    ty.eachTopClass({ cls ->
+                        var find = false
+                        val memberType = cls.findMemberType(it.ConvertFunctionName, searchContext)
+                        if (memberType is ITyFunction) {
+                            extraSig = memberType.mainSignature
+                            paramOffset = it.ParameterOffset
+                            find = true
+                        }
+                        !find
+                    })
+                }
+            }
             TyUnion.each(type) { ty ->
                 if (ty is ITyFunction) {
-                    ty.process(Processor {
+                    ty.process(Processor { it ->
                         if ((it.colonCall && !isColonStyle) || it.params.isNotEmpty()) {
-                            list.add(ParameterInfoType(it, isColonStyle))
+                            list.add(ParameterInfoType(it, isColonStyle, paramOffset, extraSig))
                         }
                         true
                     })
@@ -73,33 +92,38 @@ class LuaParameterInfoHandler : ParameterInfoHandler<LuaArgs, ParameterInfoType>
     }
 
     override fun updateUI(o: ParameterInfoType?, context: ParameterInfoUIContext) {
-        if (o == null)
-            return
+        if (o == null) return
 
         val index = context.currentParameterIndex
-        var start = 0
-        var end = 0
         val str = buildString {
+            var paramSize = 0
             o.sig.processArgs(null, o.isColonStyle) { idx, pi ->
-                if (idx > 0) append(", ")
-                if (idx == index) start = length
-                append(pi.name)
-                append(":")
-                append(pi.ty.displayName)
-                if (idx == index) end = length
+                paramSize = addParamStr(paramSize, index, pi, idx)
                 true
+            }
+            if (o.paramOffset >= 0 && o.extraSig != null) {
+                o.extraSig.processArgs(null, true) { idx, pi ->
+                    if (idx >= o.paramOffset) {
+                        paramSize = addParamStr(paramSize, index, pi, idx)
+                    }
+                    true
+                }
             }
         }
         if (str.isNotEmpty()) {
             context.setupUIComponentPresentation(
-                    str,
-                    start,
-                    end,
-                    false,
-                    false,
-                    false,
-                    context.defaultParameterColor
+                str, start, end, false, false, false, context.defaultParameterColor
             )
         }
+    }
+
+    private fun StringBuilder.addParamStr(paramSize: Int, index: Int, pi: LuaParamInfo, idx: Int): Int {
+        if (paramSize > 0) append(", ")
+        if (paramSize == index) start = length
+        append(pi.name)
+        append(":")
+        append(pi.ty.displayName)
+        if (paramSize == index) end = length
+        return paramSize + 1
     }
 }

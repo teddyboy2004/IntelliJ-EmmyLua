@@ -22,6 +22,8 @@ import com.intellij.psi.tree.IElementType
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.Processor
 import com.tang.intellij.lua.Constants
+import com.tang.intellij.lua.comment.psi.LuaDocTagClass
+import com.tang.intellij.lua.editor.LuaNameSuggestionProvider
 import com.tang.intellij.lua.ext.recursionGuard
 import com.tang.intellij.lua.lang.type.LuaString
 import com.tang.intellij.lua.project.LuaSettings
@@ -30,7 +32,6 @@ import com.tang.intellij.lua.psi.impl.LuaNameExprMixin
 import com.tang.intellij.lua.psi.search.LuaShortNamesManager
 import com.tang.intellij.lua.search.GuardType
 import com.tang.intellij.lua.search.SearchContext
-import com.tang.intellij.lua.stubs.index.LuaClassIndex
 
 fun inferExpr(expr: LuaExpr?, context: SearchContext): ITy {
     if (expr == null)
@@ -471,4 +472,25 @@ fun LuaTableExpr.infer(): ITy {
         }
     }
     return TyTable(this)
+}
+
+fun LuaPsiFile.guessFileElement():PsiElement?{
+    // 获取@class定义
+    val child = PsiTreeUtil.findChildOfType(this, LuaDocTagClass::class.java)
+    if (child != null) {
+        return child
+    }
+    // 获取函数中前缀
+    val methodDef = PsiTreeUtil.findChildOfType(this, LuaClassMethodDef::class.java)
+    if (methodDef != null) {
+        return methodDef.classMethodName.expr
+    }
+
+    // 获取返回函数
+    val returnText = this.returnStatement()?.exprList?.text
+    if (returnText != null) {
+        return this.returnStatement()?.exprList
+    }
+
+    return null
 }

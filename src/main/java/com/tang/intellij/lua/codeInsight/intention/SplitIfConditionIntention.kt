@@ -103,8 +103,11 @@ class SplitIfConditionIntention : PsiElementBaseIntentionAction() {
                 if (parent is LuaIfStat) {
                     return parent
                 }
-                if (parent is LuaBinaryExpr) {
+                else if (parent is LuaBinaryExpr) {
                     parent = parent.parent
+                }
+                else {
+                    return null
                 }
             }
             return null
