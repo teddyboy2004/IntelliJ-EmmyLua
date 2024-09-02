@@ -22,6 +22,7 @@ import com.intellij.codeInsight.template.TemplateEditingAdapter
 import com.intellij.codeInsight.template.TemplateManager
 import com.intellij.codeInsight.template.impl.MacroCallNode
 import com.intellij.codeInsight.template.impl.TextExpression
+import com.intellij.codeInsight.template.macro.CompleteMacro
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.project.Project
@@ -87,7 +88,7 @@ class CreateFieldFromParameterIntention : BaseIntentionAction() {
                                 val tempString = String.format("\n---@field public %s \$type$\$END$", fieldName)
                                 val templateManager = TemplateManager.getInstance(project)
                                 val template = templateManager.createTemplate("", "", tempString)
-                                template.addVariable("type", MacroCallNode(SuggestTypeMacro()), TextExpression("table"), true)
+                                template.addVariable("type", MacroCallNode(CompleteMacro()), TextExpression("table"), true)
                                 template.isToReformat = true
 
                                 val textRange = def.textRange

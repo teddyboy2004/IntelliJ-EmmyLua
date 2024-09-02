@@ -49,19 +49,17 @@ abstract class LuaShortNamesManager {
         var tagField: LuaDocTagField? = null
         var tableField: LuaTableField? = null
         processMembers(type, fieldName, context) {
-            when (it) {
-                is LuaDocTagField -> {
+            when {
+                it is LuaDocTagField && it.name == fieldName -> {
                     tagField = it
                     false
                 }
-
-                is LuaTableField -> {
+                it is LuaTableField && it.name == fieldName -> {
                     tableField = it
                     true
                 }
-
                 else -> {
-                    if (perfect == null)
+                    if (perfect == null && it.name == fieldName)
                         perfect = it
                     true
                 }
@@ -80,7 +78,7 @@ abstract class LuaShortNamesManager {
     ): LuaClassMethod? {
         var target: LuaClassMethod? = null
         processMembers(className, methodName, context, Processor {
-            if (it is LuaClassMethod) {
+            if (it is LuaClassMethod && it.name == methodName) {
                 target = it
                 return@Processor false
             }

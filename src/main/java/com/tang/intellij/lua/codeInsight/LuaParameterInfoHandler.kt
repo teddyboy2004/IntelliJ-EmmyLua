@@ -45,20 +45,14 @@ class LuaParameterInfoHandler : ParameterInfoHandler<LuaArgs, ParameterInfoType>
             val list = mutableListOf<ParameterInfoType>()
             var paramOffset = -1
             var extraSig: IFunSignature? = null
-            LuaSettings.getCustomParam(callExpr)?.let {
-                val guessType = callExpr.guessType(searchContext)
-                TyUnion.each(guessType) { ty ->
-                    ty.eachTopClass({ cls ->
-                        var find = false
-                        val memberType = cls.findMemberType(it.ConvertFunctionName, searchContext)
-                        if (memberType is ITyFunction) {
-                            extraSig = memberType.mainSignature
-                            paramOffset = it.ParameterOffset
-                            find = true
-                        }
-                        !find
-                    })
+            LuaSettings.handleCustomParam(callExpr) { cfg, member ->
+                val memberType = member.guessType(searchContext)
+                if (memberType is ITyFunction) {
+                    extraSig = memberType.mainSignature
+                    paramOffset = cfg.ParameterOffset
+                    return@handleCustomParam false
                 }
+                return@handleCustomParam true
             }
             TyUnion.each(type) { ty ->
                 if (ty is ITyFunction) {

@@ -18,6 +18,7 @@ package com.tang.intellij.lua.codeInsight.intention
 
 import com.intellij.codeInsight.template.impl.MacroCallNode
 import com.intellij.codeInsight.template.impl.TextExpression
+import com.intellij.codeInsight.template.macro.CompleteMacro
 import com.intellij.openapi.editor.Editor
 import com.intellij.psi.util.PsiTreeUtil
 import com.tang.intellij.lua.codeInsight.template.macro.SuggestTypeMacro
@@ -46,8 +47,8 @@ class CreateFunctionReturnAnnotationIntention : FunctionIntention() {
         if (bodyOwner is LuaCommentOwner) {
             LuaCommentUtil.insertTemplate(bodyOwner, editor) { _, template ->
                 template.addTextSegment("---@return ")
-                val typeSuggest = MacroCallNode(SuggestTypeMacro())
-                template.addVariable("returnType", typeSuggest, TextExpression("table"), false)
+                val typeSuggest = MacroCallNode(CompleteMacro())
+                template.addVariable("returnType", typeSuggest, TextExpression("table"), true)
                 template.addEndVariable()
             }
         }

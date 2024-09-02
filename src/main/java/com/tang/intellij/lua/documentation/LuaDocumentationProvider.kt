@@ -19,15 +19,13 @@ package com.tang.intellij.lua.documentation
 import com.intellij.codeInsight.documentation.DocumentationManagerUtil
 import com.intellij.lang.documentation.AbstractDocumentationProvider
 import com.intellij.lang.documentation.DocumentationProvider
-import com.intellij.psi.PsiComment
-import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiManager
 import com.intellij.psi.util.PsiTreeUtil
 import com.tang.intellij.lua.comment.psi.LuaDocTagClass
 import com.tang.intellij.lua.comment.psi.LuaDocTagField
-import com.tang.intellij.lua.comment.psi.api.LuaComment
 import com.tang.intellij.lua.editor.completion.LuaDocumentationLookupElement
+import com.tang.intellij.lua.project.LuaSettings
 import com.tang.intellij.lua.psi.*
 import com.tang.intellij.lua.search.SearchContext
 import com.tang.intellij.lua.stubs.index.LuaClassIndex
@@ -39,7 +37,7 @@ import com.tang.intellij.lua.ty.*
  */
 class LuaDocumentationProvider : AbstractDocumentationProvider(), DocumentationProvider {
 
-    private val renderer: ITyRenderer = object: TyRenderer() {
+    private val renderer: ITyRenderer = object : TyRenderer() {
         override fun renderType(t: String): String {
             return if (t.isNotEmpty()) buildString { DocumentationManagerUtil.createHyperlink(this, t, t, true) } else t
         }
@@ -70,27 +68,43 @@ class LuaDocumentationProvider : AbstractDocumentationProvider(), DocumentationP
         return LuaClassIndex.find(link, SearchContext.get(psiManager.project))
     }
 
-    override fun generateDoc(element: PsiElement, originalElement: PsiElement?): String? {
-        val sb = StringBuilder()
+    override fun generateDoc(psiElement: PsiElement, originalElement: PsiElement?): String? {
         val tyRenderer = renderer
-        renderer.project = element.project
+        renderer.project = psiElement.project
+        val sb = StringBuilder()
+        handleCustomParam(psiElement, originalElement, tyRenderer, sb)
+
+        generateDoc(psiElement, tyRenderer, sb)
+        if (sb.isNotEmpty()) {
+            return sb.toString()
+        }
+        return super<AbstractDocumentationProvider>.generateDoc(psiElement, originalElement)
+    }
+
+    private fun generateDoc(element: PsiElement, tyRenderer: ITyRenderer, sb: StringBuilder) {
         when (element) {
             is LuaParamNameDef -> renderParamNameDef(sb, element)
-            is LuaDocTagClass -> renderClassDef(sb, element, tyRenderer)
+            is LuaDocTagClass -> {
+                tyRenderer.renderClassDetail = true
+                renderClassDef(sb, element, tyRenderer)
+                tyRenderer.renderClassDetail = false
+            }
+
             is LuaClassMember -> renderClassMember(sb, element)
             is LuaNameDef -> { //local xx
 
                 renderDefinition(sb) {
                     sb.append("local <b>${element.name}</b>:")
                     val ty = element.guessType(SearchContext.get(element.project))
-                    tyRenderer.renderDetail = true
+                    tyRenderer.renderClassDetail = true
                     renderTy(sb, ty, tyRenderer)
-                    tyRenderer.renderDetail = false
+                    tyRenderer.renderClassDetail = false
                 }
 
                 val owner = PsiTreeUtil.getParentOfType(element, LuaCommentOwner::class.java)
                 owner?.let { renderComment(sb, owner, tyRenderer) }
             }
+
             is LuaLocalFuncDef -> {
                 sb.wrapTag("pre") {
                     sb.append("local function <b>${element.name}</b>")
@@ -100,8 +114,25 @@ class LuaDocumentationProvider : AbstractDocumentationProvider(), DocumentationP
                 renderComment(sb, element, tyRenderer)
             }
         }
-        if (sb.isNotEmpty()) return sb.toString()
-        return super<AbstractDocumentationProvider>.generateDoc(element, originalElement)
+    }
+
+    private fun handleCustomParam(psiElement: PsiElement, originalElement: PsiElement?, tyRenderer: ITyRenderer, sb: StringBuilder) {
+        var element: PsiElement = psiElement
+        val luaCallExpr = originalElement?.parent?.parent
+        if (psiElement is LuaClassMethodDef && luaCallExpr is LuaCallExpr) {
+            LuaSettings.handleCustomParam(luaCallExpr){ cfg, member ->
+                if (member is LuaClassMethodDef) {
+                    if (member.comment != null) {
+                        element = member
+                        sb.append("<div style='background-color:#222222;'>")
+                        generateDoc(element, tyRenderer, sb)
+                        sb.append("</div>")
+                    }
+                    return@handleCustomParam false
+                }
+                return@handleCustomParam true
+            }
+        }
     }
 
     private fun renderClassMember(sb: StringBuilder, classMember: LuaClassMember) {
@@ -113,8 +144,10 @@ class LuaDocumentationProvider : AbstractDocumentationProvider(), DocumentationP
         renderDefinition(sb) {
             //base info
             if (parentType != null) {
-                renderTy(sb, parentType, tyRenderer)
-                tyRenderer.renderDetail = true
+                val stringBuilder = StringBuilder()
+                renderTy(stringBuilder, parentType, tyRenderer)
+                sb.append(stringBuilder.toString().surroundHighlight(bgColor = "transparent", color = "#FED330"))
+                tyRenderer.renderClassDetail = true
                 with(sb) {
                     var name = classMember.name
                     when (ty) {
@@ -123,6 +156,7 @@ class LuaDocumentationProvider : AbstractDocumentationProvider(), DocumentationP
                             append(name)
                             renderSignature(sb, ty.mainSignature, tyRenderer)
                         }
+
                         else -> {
                             // array
                             append(".$name:")
@@ -130,7 +164,7 @@ class LuaDocumentationProvider : AbstractDocumentationProvider(), DocumentationP
                         }
                     }
                 }
-                tyRenderer.renderDetail = false
+                tyRenderer.renderClassDetail = false
             } else {
                 //NameExpr
                 if (classMember is LuaNameExpr) {
@@ -141,9 +175,9 @@ class LuaDocumentationProvider : AbstractDocumentationProvider(), DocumentationP
                             is TyFunction -> renderSignature(sb, ty.mainSignature, tyRenderer)
                             else -> {
                                 append(":")
-                                tyRenderer.renderDetail = true
+                                tyRenderer.renderClassDetail = true
                                 renderTy(sb, ty, tyRenderer)
-                                tyRenderer.renderDetail = false
+                                tyRenderer.renderClassDetail = false
                             }
                         }
                     }
@@ -159,6 +193,7 @@ class LuaDocumentationProvider : AbstractDocumentationProvider(), DocumentationP
             is LuaCommentOwner -> {
                 renderComment(sb, classMember, tyRenderer)
             }
+
             is LuaDocTagField -> renderCommentString("  ", null, sb, classMember.commentString)
             is LuaIndexExpr -> {
                 val p1 = classMember.parent
@@ -179,9 +214,9 @@ class LuaDocumentationProvider : AbstractDocumentationProvider(), DocumentationP
         } else {
             val ty = infer(paramNameDef, SearchContext.get(paramNameDef.project))
             sb.append("<b>param</b> <code>${paramNameDef.name}</code> : ")
-            renderer.renderDetail = true
+            renderer.renderClassDetail = true
             renderTy(sb, ty, tyRenderer)
-            renderer.renderDetail = false
+            renderer.renderClassDetail = false
         }
     }
 }

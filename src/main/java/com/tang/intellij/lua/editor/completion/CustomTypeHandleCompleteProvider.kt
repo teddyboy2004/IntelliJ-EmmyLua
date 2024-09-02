@@ -20,19 +20,43 @@ import com.intellij.codeInsight.completion.CompletionResultSet
 import com.intellij.codeInsight.completion.InsertHandler
 import com.intellij.codeInsight.lookup.LookupElement
 import com.intellij.codeInsight.lookup.LookupElementBuilder
+import com.intellij.psi.util.PsiTreeUtil
 import com.tang.intellij.lua.lang.LuaIcons
 import com.tang.intellij.lua.project.LuaCustomHandleType
+import com.tang.intellij.lua.project.LuaSettings
+import com.tang.intellij.lua.psi.LuaCallExpr
 import com.tang.intellij.lua.psi.search.LuaShortNamesManager
 import javax.swing.Icon
 
 class CustomTypeHandleCompleteProvider(var handleType: LuaCustomHandleType) : RequirePathCompletionProvider() {
 
+    var oldValue = ""
+    var newValue = ""
+
     override fun addCompletions(session: CompletionSession) {
         var resultSet = session.resultSet
         val parameters = session.parameters
         val project = parameters.position.project
+        oldValue = ""
+        newValue = ""
         when (handleType) {
             LuaCustomHandleType.ClassName -> {
+                PsiTreeUtil.getParentOfType(parameters.position, LuaCallExpr::class.java)?.let {
+                    LuaSettings.getCustomHandleType(it, -1, LuaCustomHandleType.ClassName.bit)?.let {
+                        val extraParam = it.ExtraParam
+                        if (extraParam.isNotEmpty()) {
+                            if (extraParam.contains(',')) {
+                                val strings = extraParam.split(',')
+                                if (strings.size > 1 && strings[0].isNotEmpty() and strings[1].isNotEmpty()) {
+                                    oldValue = strings[0]
+                                    newValue = strings[1]
+                                }
+                            } else {
+                                oldValue = extraParam
+                            }
+                        }
+                    }
+                }
                 val prefix = resultSet.prefixMatcher.prefix
                 if (prefix.startsWith("\"")) {
                     resultSet = resultSet.withPrefixMatcher(prefix.substring(1))
@@ -58,18 +82,32 @@ class CustomTypeHandleCompleteProvider(var handleType: LuaCustomHandleType) : Re
     }
 
     private fun addElement(session: CompletionSession, it: String, resultSet: CompletionResultSet, icon: Icon?) {
-        session.addWord(it)
-        val element = LookupElementBuilder.create(it).withIcon(icon).withInsertHandler(getInsertHandler())
+        var text = it
+        if (oldValue.isNotEmpty()) {
+            if (newValue.isNotEmpty()) {
+                if (!it.contains(oldValue)) {
+                    return
+                }
+                text = it.replace(oldValue, newValue)
+            } else {
+                if (!it.startsWith(oldValue)) {
+                    return
+                }
+                text = it.replaceFirst(oldValue, "")
+            }
+        }
+        session.addWord(text)
+        val element = LookupElementBuilder.create(text).withIcon(icon).withInsertHandler(getInsertHandler())
         resultSet.addElement(element)
     }
 
     override fun getInsertHandler(): InsertHandler<LookupElement> {
-        return InsertHandler()
-        { context, item ->
+        return InsertHandler() { context, item ->
             val startOffset = context.startOffset
             val element = context.file.findElementAt(startOffset)
             val editor = context.editor
-            val targetStr = "\"${item.lookupString}\""
+            val lookupString = item.lookupString
+            val targetStr = "\"$lookupString\""
             if (element != null && element.text != targetStr) {
                 editor.document.replaceString(startOffset - 1, startOffset + targetStr.length - 2, targetStr)
             }

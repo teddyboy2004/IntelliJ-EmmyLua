@@ -30,6 +30,7 @@ import com.tang.intellij.lua.psi.*
 import com.tang.intellij.lua.search.SearchContext
 import com.tang.intellij.lua.ty.TyClass
 import com.tang.intellij.lua.ty.TyTable
+import com.tang.intellij.lua.ty.returnStatement
 
 class LuaCurrentClassNameMacro : Macro() {
     override fun getPresentableName() = "LuaCurrentClassName()"
@@ -111,16 +112,18 @@ class LuaCurrentClassNameMacro : Macro() {
                 e = e.prevSibling
             }
         }
-        // 还是找不到就找第一个 local xxx = {}
-        val searchContext = SearchContext.get(element.project)
 
-        val declarations = element.containingFile.childrenOfType<LuaLocalDef>().filter { stat -> stat.exprList?.guessType(searchContext) is TyClass }
+        // 还是找不到所有 local xxx = {}
+        val searchContext = SearchContext.get(element.project)
+        val declarations = element.containingFile.childrenOfType<LuaLocalDef>().filter { stat -> stat.exprList?.firstChild is LuaTableExpr }
         declarations.forEach { localDef ->
-            val tagClass = localDef.comment?.tagClass
-            if (tagClass != null) {
-                val nameList = localDef.nameList
-                if (nameList?.text!=null) {
-                    return nameList.text
+            if (localDef.exprList?.guessType(searchContext) is TyClass) {
+                val tagClass = localDef.comment?.tagClass
+                if (tagClass != null) {
+                    val nameList = localDef.nameList
+                    if (nameList?.text!=null) {
+                        return nameList.text
+                    }
                 }
             }
         }

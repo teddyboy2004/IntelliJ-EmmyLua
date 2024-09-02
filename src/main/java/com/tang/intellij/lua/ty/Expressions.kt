@@ -20,6 +20,7 @@ import com.intellij.openapi.util.Computable
 import com.intellij.psi.PsiElement
 import com.intellij.psi.tree.IElementType
 import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.testFramework.fixtures.injectionForHost
 import com.intellij.util.Processor
 import com.tang.intellij.lua.Constants
 import com.tang.intellij.lua.comment.psi.LuaDocTagClass
@@ -81,21 +82,22 @@ private fun LuaBinaryExpr.infer(context: SearchContext): ITy {
     }
     return operator.let {
         when (it) {
-        //..
+            //..
             LuaTypes.CONCAT -> Ty.STRING
-        //<=, ==, <, ~=, >=, >
+            //<=, ==, <, ~=, >=, >
             LuaTypes.LE, LuaTypes.EQ, LuaTypes.LT, LuaTypes.NE, LuaTypes.GE, LuaTypes.GT -> Ty.BOOLEAN
-        //and, or
+            //and, or
             LuaTypes.AND, LuaTypes.OR -> guessAndOrType(this, operator, context)
-        //&, <<, |, >>, ~, ^,    +, -, *, /, //, %
+            //&, <<, |, >>, ~, ^,    +, -, *, /, //, %
             LuaTypes.BIT_AND, LuaTypes.BIT_LTLT, LuaTypes.BIT_OR, LuaTypes.BIT_RTRT, LuaTypes.BIT_TILDE, LuaTypes.EXP,
             LuaTypes.PLUS, LuaTypes.MINUS, LuaTypes.MULT, LuaTypes.DIV, LuaTypes.DOUBLE_DIV, LuaTypes.MOD -> guessBinaryOpType(this, context)
+
             else -> Ty.UNKNOWN
         }
     }
 }
 
-private fun guessAndOrType(binaryExpr: LuaBinaryExpr, operator: IElementType?, context:SearchContext): ITy {
+private fun guessAndOrType(binaryExpr: LuaBinaryExpr, operator: IElementType?, context: SearchContext): ITy {
     val rhs = binaryExpr.right
     //and
     if (operator == LuaTypes.AND)
@@ -107,7 +109,7 @@ private fun guessAndOrType(binaryExpr: LuaBinaryExpr, operator: IElementType?, c
     return if (rhs != null) lty.union(infer(rhs, context)) else lty
 }
 
-private fun guessBinaryOpType(binaryExpr : LuaBinaryExpr, context:SearchContext): ITy {
+private fun guessBinaryOpType(binaryExpr: LuaBinaryExpr, context: SearchContext): ITy {
     val lhs = binaryExpr.left
     // TODO: Search for operator overrides
     return infer(lhs, context)
@@ -180,7 +182,7 @@ fun LuaCallExpr.inferParam(paramIndex: Int, context: SearchContext): ITy {
                 if (iTy is TyPrimitiveLiteral && iTy.primitiveKind == TyPrimitiveKind.String) {
                     val fieldName = iTy.value
                     inferExprInner(element.prefixExpr, context).each {
-                        if (it is TyTable){
+                        if (it is TyTable) {
                             it.findMember(fieldName, context)?.let { field ->
                                 ty = field.guessType(context)
                             }
@@ -210,8 +212,7 @@ private fun LuaCallExpr.infer(context: SearchContext): ITy {
         val string = luaCallExpr.firstStringArg
         if (string is LuaLiteralExpr) {
             filePath = string.stringValue
-        }
-        else {
+        } else {
             luaCallExpr.inferParam(0, context).also { type ->
                 if (type is TyPrimitiveLiteral && type.primitiveKind == TyPrimitiveKind.String) {
                     filePath = type.value
@@ -258,7 +259,7 @@ private fun LuaCallExpr.infer(context: SearchContext): ITy {
 
 private fun LuaNameExpr.infer(context: SearchContext): ITy {
     val set = recursionGuard(this, Computable {
-        var type:ITy = Ty.UNKNOWN
+        var type: ITy = Ty.UNKNOWN
 
         context.withRecursionGuard(this, GuardType.GlobalName) {
             val multiResolve = multiResolve(this, context)
@@ -336,12 +337,13 @@ private fun getType(context: SearchContext, def: PsiElement): ITy {
             }
             return type
         }
+
         is LuaTypeGuessable -> return def.guessType(context)
         else -> return Ty.UNKNOWN
     }
 }
 
-private fun isGlobal(nameExpr: LuaNameExpr):Boolean {
+private fun isGlobal(nameExpr: LuaNameExpr): Boolean {
     val minx = nameExpr as LuaNameExprMixin
     val gs = minx.greenStub
     return gs?.isGlobal ?: (resolveLocal(nameExpr, null) == null)
@@ -353,11 +355,13 @@ fun LuaLiteralExpr.infer(): ITy {
         LuaLiteralKind.Number -> {
             TyPrimitiveLiteral.getTy(TyPrimitiveKind.Number, firstChild.text)
         }
+
         LuaLiteralKind.String -> TyPrimitiveLiteral.getTy(TyPrimitiveKind.String, LuaString.getContent(firstChild.text).value)
         LuaLiteralKind.Varargs -> {
             val o = PsiTreeUtil.getParentOfType(this, LuaFuncBodyOwner::class.java)
             o?.varargType ?: Ty.UNKNOWN
         }
+
         LuaLiteralKind.Nil -> Ty.NIL
         else -> Ty.UNKNOWN
     }
@@ -390,7 +394,7 @@ private fun LuaIndexExpr.infer(context: SearchContext): ITy {
             if (indexTy is TyPrimitiveLiteral && (indexTy as TyPrimitiveLiteral).primitiveKind == TyPrimitiveKind.Number) {
                 TyUnion.each(tySet) {
                     if (it is TyTable) {
-                        it.table.findField(indexTy.displayName)?.let { field -> ty = field.guessType(context)}
+                        it.table.findField(indexTy.displayName)?.let { field -> ty = field.guessType(context) }
                     }
                 }
             }
@@ -423,7 +427,7 @@ private fun LuaIndexExpr.infer(context: SearchContext): ITy {
                 result = result.union(guessFieldType(propName, clazz, context))
                 true
             })
-            
+
             // table<string, K> -> member type is K
             prefixType.each { ty ->
                 if (ty is ITyGeneric && ty.getParamTy(0) == Ty.STRING)
@@ -440,7 +444,7 @@ private fun guessFieldType(fieldName: String, type: ITyClass, context: SearchCon
     // 23-07-03 10:57 teddysjwu: 增加__super类型判断处理
     if (LuaSettings.isSuperFieldName(fieldName)) {
         val superClass = type.getSuperClass(context)
-        if (superClass != null){
+        if (superClass != null) {
             return superClass
         }
     }
@@ -471,10 +475,37 @@ fun LuaTableExpr.infer(): ITy {
                 return TyArray(ty)
         }
     }
+    // 嵌套table，根据父table类型判断当前table
+    if (parent is LuaTableField) {
+        (parent as LuaTableField).comment?.guessType(SearchContext.get(project))?.let {
+            if (it !is TyUnknown) {
+                return it
+            }
+        }
+        val fieldName = (parent as LuaTableField).fieldName
+        PsiTreeUtil.getStubOrPsiParentOfType(parent, LuaTableExpr::class.java)?.let {
+            val infer = it.infer()
+            if (infer !is TyTable) {
+                if (infer is TyArray) {
+                    val i = fieldName?.toIntOrNull()
+                    if (i != null) {
+                        return infer.base
+                    }
+                }
+            }
+        }
+    } else if (parent is LuaExprList && parent.parent is LuaDeclaration) {
+        val element = parent.parent as LuaDeclaration
+        element.comment?.guessType(SearchContext.get(element.project))?.let {
+            if (it !is TyUnknown) {
+                return it
+            }
+        }
+    }
     return TyTable(this)
 }
 
-fun LuaPsiFile.guessFileElement():PsiElement?{
+fun LuaPsiFile.guessFileElement(): PsiElement? {
     // 获取@class定义
     val child = PsiTreeUtil.findChildOfType(this, LuaDocTagClass::class.java)
     if (child != null) {

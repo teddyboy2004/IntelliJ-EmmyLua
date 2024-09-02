@@ -15,6 +15,7 @@ import com.intellij.openapi.util.Disposer
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
+import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.psi.util.elementType
 import com.intellij.psi.util.parents
 import com.intellij.refactoring.suggested.startOffset
@@ -55,6 +56,9 @@ class StickyPanelManager(
     }
 
     private fun checkCaretPosition() {
+        if (editor.isDisposed) {
+            return
+        }
         val visualPosition = editor.caretModel.currentCaret.visualPosition
         val xy = editor.visualPositionToXY(visualPosition)
         val minY = activeVisualArea.y + stickyPanel.height
@@ -115,17 +119,25 @@ class StickyPanelManager(
         if (stickyScrollMaxLevel == 0)
             return
         val pos = editor.xyToVisualPosition(
-            Point(
-                visibleArea.width, visibleArea.y
-            )
+            Point(visibleArea.width, visibleArea.y)
         )
+        val preMatch = mutableListOf<StickyLine>()
         for (i in 1 until stickyScrollMaxLevel) {
             val showLevel = tryInitStickyLine(pos, i, stickyScrollMaxLevel)
             if (showLevel == i) {
+                preMatch.clear()
+                preMatch.addAll(visualStickyLines)
+            } else if (preMatch.size > 0) {
+                visualStickyLines.clear()
+                visualStickyLines.addAll(preMatch)
                 return
             }
         }
         visualStickyLines.clear()
+        if (preMatch.size > 0) {
+            visualStickyLines.addAll(preMatch)
+            return
+        }
         // 没有的话兜底0
         tryInitStickyLine(pos, 0, stickyScrollMaxLevel)
     }
@@ -154,7 +166,7 @@ class StickyPanelManager(
                     addStickyLine(parent, document, preline, startLine)
                     if (visualStickyLines.size > preSize) {
                         showLevel++
-                        preline = visualStickyLines.last().logicLine
+                        preline = visualStickyLines.last().line
                         if (showLevel >= stickyScrollMaxLevel) {
                             break
                         }
@@ -176,41 +188,42 @@ class StickyPanelManager(
 
     private fun addStickyLine(element: PsiElement, document: Document, preLine: Int, srcLine: Int) {
         var checkSameLine = true
-        val parentStartOffset = element.textRange.startOffset
+        var parentStartOffset = element.textRange.startOffset
+        var parentEndOffset = element.textRange.endOffset
         val firstChildOffset = when {
             element is LuaIfStat -> {
-                val list = element.children.filter(fun(it: PsiElement): Boolean {
-                    if (it !is LuaBlock) {
-                        return false
-                    }
-//                    val ifStartEle = getIfBlockStartElement(it) ?: return false
-//                    return editor.offsetToVisualLine(ifStartEle.startOffset) <= srcLine
-                    return editor.offsetToVisualLine(it.startOffset) <= srcLine
-                }).toMutableList()
-                val l = list.map { getIfBlockStartElement(it as LuaBlock) }.toMutableList()
-                // 只显示最后一个elseif
-                if (l.count() > 2) {  // if elseif else
-                    l.filter { it.elementType == LuaTypes.ELSEIF }.reversed().forEachIndexed { index, psiElement ->
-                        if (index > 0) {
-                            l.remove(psiElement)
-                        }
-                    }
-                }
-                l.forEach { addStickyLine(it!!, document, preLine, srcLine) }
-                return
+//                val list = element.children.filter(fun(it: PsiElement): Boolean {
+//                    if (it !is LuaBlock) {
+//                        return false
+//                    }
+//                    val e = getIfBlockStartElement(it) ?: return false
+//                    return editor.offsetToVisualLine(e.startOffset) <= srcLine
+//                }).toMutableList()
+//                val l = list.map { getIfBlockStartElement(it as LuaBlock) }.toMutableList()
+//                // 只显示最后一个elseif
+//                if (l.count() > 2) {  // if elseif else
+//                    l.filter { it.elementType == LuaTypes.ELSEIF }.reversed().forEachIndexed { index, psiElement ->
+//                        if (index > 0) {
+//                            l.remove(psiElement)
+//                        }
+//                    }
+//                }
+//                l.forEach { addStickyLine(it!!, document, preLine, srcLine) }
+//                return
+                element.firstChild.textRange.startOffset
             }
 
             element.elementType == LuaTypes.IF || element.elementType == LuaTypes.ELSEIF || element.elementType == LuaTypes.ELSE -> {
                 checkSameLine = false
-                element.textRange.endOffset
+                parentEndOffset
             }
 
-//            element is LuaBlock -> {
-//                if (element.parent !is LuaIfStat)
-//                    return
-//                val startElement = getIfBlockStartElement(element) ?: return
-//                startElement.textRange.endOffset
-//            }
+            element is LuaCommentOwner && element.comment != null && element.children.size > 1 -> {
+                val startOffset = element.children[1].textRange.startOffset
+                parentStartOffset = startOffset
+                startOffset
+            }
+
             else -> {
                 when {
                     element.firstChild.textRange.startOffset == parentStartOffset && element.children.size > 1 -> {
@@ -223,14 +236,21 @@ class StickyPanelManager(
                 }
             }
         }
-        val visualEndLine = editor.offsetToVisualLine(element.textRange.endOffset)
+        PsiTreeUtil.getParentOfType(element, LuaStatement::class.java)?.let {
+            parentEndOffset = it.textRange.endOffset
+        }
+
         val visualStartLine = editor.offsetToVisualLine(parentStartOffset)
+        val visualEndLine = editor.offsetToVisualLine(parentEndOffset)
+        if (visualStartLine > srcLine || visualEndLine <= srcLine) {
+            return
+        }
         if (checkSameLine && visualStartLine == visualEndLine) {
             return
         }
-        val startLine = document.getLineNumber(firstChildOffset)
+        val startLine = editor.offsetToVisualLine(firstChildOffset)
         // 跟之前同一个不显示，当前行大于显示行也不需要，避免注释问题
-        if (startLine <= preLine || startLine >= srcLine) {
+        if (startLine <= preLine || startLine > srcLine) {
             return
         }
         visualStickyLines.add(StickyLine(startLine, firstChildOffset, visualStickyLines.size))
@@ -302,5 +322,5 @@ class StickyPanelManager(
     }
 }
 
-class StickyLine(var logicLine: Int, var navigateOffset: Int, val index: Int) {
+class StickyLine(var line: Int, var navigateOffset: Int, val index: Int) {
 }

@@ -111,7 +111,12 @@ public class LuaLookupElement extends LookupElement implements Comparable<Lookup
     }
 
     public void setTailText(String text) {
-        myTailText = text;
+        // 优化table显示
+        if (text.trim().startsWith("[{") && text.length() > 20) {
+            myTailText = "  [table]";
+        } else {
+            myTailText = text;
+        }
     }
 
     @Nullable

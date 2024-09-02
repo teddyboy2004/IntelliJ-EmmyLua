@@ -25,11 +25,10 @@ import com.tang.intellij.lua.lang.LuaIcons
 import com.tang.intellij.lua.psi.LuaClassField
 import com.tang.intellij.lua.psi.LuaClassMember
 import com.tang.intellij.lua.psi.LuaTableExpr
+import com.tang.intellij.lua.psi.LuaTableField
 import com.tang.intellij.lua.psi.shouldBe
 import com.tang.intellij.lua.search.SearchContext
-import com.tang.intellij.lua.ty.ITy
-import com.tang.intellij.lua.ty.TyTable
-import com.tang.intellij.lua.ty.TyUnion
+import com.tang.intellij.lua.ty.*
 
 class TableCompletionProvider : ClassMemberCompletionProvider() {
 
@@ -64,23 +63,19 @@ class TableCompletionProvider : ClassMemberCompletionProvider() {
             val prefixMatcher = completionResultSet.prefixMatcher
 
             val context = SearchContext.get(project)
-            val ty = table.shouldBe(context)
+            var ty = table.shouldBe(context)
             // 记录一下已经有的成员，可以不提示
             val set = HashSet<String>()
-            val type = table.guessType(context)
-            TyUnion.each(type){
-                if (it is TyTable) {
-                    it.processMembers(context, { curType, member ->
-                        if (member.name != null) {
-                            set.add(member.name!!)
-                        }
-                        true
-                    }, false)
+            if (ty is TyUnknown) {
+                ty = table.guessType(context)
+            }
+            table.tableFieldList.forEach { field ->
+                if (field.name != null) {
+                    set.add(field.name!!)
                 }
             }
 
             ty.eachTopClass { luaType ->
-                val context = SearchContext.get(project)
                 luaType.lazyInit(context)
                 luaType.processMembers(context) { curType, member ->
                     member.name?.let {

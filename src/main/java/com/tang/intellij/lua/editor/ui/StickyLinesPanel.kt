@@ -69,7 +69,7 @@ class StickyLinesPanel(
         for (stickyLine: StickyLine in stickyLines) {
             val component: StickyLineComponent = components.next()
             component.setLine(
-                stickyLine.logicLine,
+                stickyLine.line,
                 stickyLine.index,
                 stickyLine.navigateOffset,
                 null,

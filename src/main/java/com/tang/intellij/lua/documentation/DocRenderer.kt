@@ -17,7 +17,6 @@
 package com.tang.intellij.lua.documentation
 
 import com.intellij.codeInsight.documentation.DocumentationManagerUtil
-import com.intellij.lang.documentation.DocumentationMarkup
 import com.intellij.psi.PsiComment
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
@@ -40,6 +39,10 @@ inline fun StringBuilder.wrapTag(tag: String, crossinline body: () -> Unit) {
     wrap("<$tag>", "</$tag>", body)
 }
 
+inline fun StringBuilder.wrapTag(vararg tag: String, style:String?, crossinline body: () -> Unit) {
+    wrap("<$tag $style>", "</$tag>", body)
+}
+
 private fun StringBuilder.appendClassLink(clazz: String) {
     DocumentationManagerUtil.createHyperlink(this, clazz, clazz, true)
 }
@@ -57,7 +60,10 @@ fun renderSignature(sb: StringBuilder, signature: IFunSignature, tyRenderer: ITy
         sig.add("...: ${tyRenderer.render(it)}")
     }
     sb.append("(${sig.joinToString(", <br>        ")}): ")
+    val renderClassDetail = tyRenderer.renderClassDetail
+    tyRenderer.renderClassDetail = false
     tyRenderer.render(signature.returnTy, sb)
+    tyRenderer.renderClassDetail = renderClassDetail
 }
 
 fun renderComment(sb: StringBuilder, commentOwner: LuaCommentOwner, tyRenderer: ITyRenderer) {
@@ -65,11 +71,15 @@ fun renderComment(sb: StringBuilder, commentOwner: LuaCommentOwner, tyRenderer: 
     if (comment != null) {
         var child: PsiElement? = comment.firstChild
 
-        sb.append("<div class='content'>")
+
         val docStrBuilder = StringBuilder()
         val flushDocString = {
-            sb.append((docStrBuilder.toString()))
-            docStrBuilder.setLength(0)
+            if (docStrBuilder.isNotEmpty()) {
+                sb.append("<div class='content'>")
+                sb.append((docStrBuilder.toString()))
+                docStrBuilder.setLength(0)
+                sb.append("</div>")
+            }
         }
         var seenString = false
         while (child != null) {
@@ -104,7 +114,7 @@ fun renderComment(sb: StringBuilder, commentOwner: LuaCommentOwner, tyRenderer: 
             child = child.nextSibling
         }
         flushDocString()
-        sb.append("</div>")
+
 
         val sections = StringBuilder()
         sections.append("<table class='sections'>")
@@ -172,7 +182,7 @@ fun renderClassDef(sb: StringBuilder, tag: LuaDocTagClass, tyRenderer: ITyRender
     val cls = tag.type
     sb.append("<pre style=\"font-family:'Microsoft YaHei'\">")
     sb.append("class ")
-    sb.wrapTag("b") { tyRenderer.render(cls, sb) }
+    tyRenderer.render(cls, sb)
     val superClassName = cls.superClassName
     if (superClassName != null) {
         sb.append(" : ")
@@ -183,7 +193,7 @@ fun renderClassDef(sb: StringBuilder, tag: LuaDocTagClass, tyRenderer: ITyRender
 }
 
 private fun renderFieldDef(sb: StringBuilder, tagField: LuaDocTagField, tyRenderer: ITyRenderer) {
-    sb.append("${tagField.name}: ")
+    sb.append("${tagField.name!!.surroundHighlight()}: ")
     renderTypeUnion(null, null, sb, tagField.ty, tyRenderer)
     renderCommentString(" - ", null, sb, tagField.commentString)
 }
@@ -216,13 +226,19 @@ private fun <T : LuaDocPsiElement> renderTagList(sb: StringBuilder, name: String
     }
 }
 
+inline fun String.surroundHighlight(tag: String="b", bgColor: String="#666666", color:String="white",fontWeight:Int=900):String {
+    return "<$tag style='background-color:$bgColor; color:$color; font-weight=$fontWeight;'>$this</$tag>"
+}
+
 fun renderDocParam(sb: StringBuilder, child: LuaDocTagParam, tyRenderer: ITyRenderer, paramTitle: Boolean = false) {
     val paramNameRef = child.paramNameRef
     if (paramNameRef != null) {
         if (paramTitle)
             sb.append("<b>param</b> ")
-        sb.append("<code>${paramNameRef.text}</code> : ")
+        sb.append("<code>${paramNameRef.text.surroundHighlight()}</code> : ")
+        tyRenderer.renderTableDetail = true
         renderTypeUnion(null, null, sb, child.ty, tyRenderer)
+        tyRenderer.renderTableDetail = false
         renderCommentString(" - ", null, sb, child.commentString)
     }
 }
@@ -244,7 +260,6 @@ private fun renderTypeUnion(prefix: String?, postfix: String?, sb: StringBuilder
 
         val ty = type.getType()
         renderTy(sb, ty, tyRenderer)
-
         if (postfix != null) sb.append(postfix)
     }
 }

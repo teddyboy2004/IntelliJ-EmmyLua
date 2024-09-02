@@ -20,9 +20,11 @@ import com.intellij.codeInsight.lookup.LookupElement
 import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.codeInsight.template.*
 import com.intellij.codeInsight.template.impl.VariableNode
+import com.intellij.execution.target.value.constant
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.util.PsiTreeUtil
+import com.tang.intellij.lua.Constants
 import com.tang.intellij.lua.codeInsight.template.context.LuaFunContextType
 import com.tang.intellij.lua.psi.LuaBlock
 import com.tang.intellij.lua.psi.LuaClassMethodName
@@ -54,6 +56,9 @@ class LuaFunctionParamSigMacro : Macro() {
             val strings = p.split(",")
             val sb = StringBuilder()
             strings.forEach {
+                if (it.trim() == Constants.WORD_UNDERLINE) {
+                    return@forEach
+                }
                 if (sb.isNotEmpty()) {
                     sb.append(", ")
                 }

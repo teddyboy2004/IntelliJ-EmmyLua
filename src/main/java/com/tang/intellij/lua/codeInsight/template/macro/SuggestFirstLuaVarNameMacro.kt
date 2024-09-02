@@ -23,6 +23,7 @@ import com.intellij.codeInsight.template.impl.MacroCallNode
 import com.intellij.codeInsight.template.impl.TemplateManagerImpl
 import com.intellij.codeInsight.template.impl.VariableNode
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiNameIdentifierOwner
 import com.intellij.psi.codeStyle.NameUtil
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.psi.util.elementType
@@ -254,15 +255,20 @@ class SuggestFirstLuaVarNameMacro : Macro() {
             }
             if (type is TyTable) {
                 val psi = type.table
+                val e = PsiTreeUtil.getParentOfType(psi, PsiNameIdentifierOwner::class.java)
+                if (e != null && !e.name.isNullOrBlank()) {
+                    return e.name.toString()
+                }
+
                 val declaration = PsiTreeUtil.getParentOfType(psi, LuaDeclaration::class.java)
                 if (declaration != null) {
                     if (declaration is LuaAssignStat) {
-                        return declaration.varExprList.text
-                    } else if (declaration is LuaLocalDef) {
-                        return declaration.nameList?.text
+                        return PsiTreeUtil.getDeepestLast(declaration.varExprList).text
+                    } else if (declaration is LuaLocalDef && declaration.nameList?.lastChild != null) {
+                        return PsiTreeUtil.getDeepestLast(declaration.nameList?.lastChild!!).text
                     }
                 }
-            }
+                }
             return null
         }
     }

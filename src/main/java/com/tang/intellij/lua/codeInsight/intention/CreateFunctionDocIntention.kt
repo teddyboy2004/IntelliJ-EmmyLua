@@ -19,8 +19,8 @@ package com.tang.intellij.lua.codeInsight.intention
 import com.intellij.codeInsight.template.TemplateManager
 import com.intellij.codeInsight.template.impl.MacroCallNode
 import com.intellij.codeInsight.template.impl.TextExpression
+import com.intellij.codeInsight.template.macro.CompleteMacro
 import com.intellij.openapi.editor.Editor
-import com.tang.intellij.lua.codeInsight.template.macro.SuggestTypeMacro
 import com.tang.intellij.lua.psi.LuaCommentOwner
 import com.tang.intellij.lua.psi.LuaFuncBodyOwner
 import org.jetbrains.annotations.Nls
@@ -45,13 +45,14 @@ class CreateFunctionDocIntention : FunctionIntention() {
             val templateManager = TemplateManager.getInstance(bodyOwner.project)
             val template = templateManager.createTemplate("", "")
             template.addTextSegment("---" + bodyOwner.name!!)
-            val typeSuggest = MacroCallNode(SuggestTypeMacro())
 
             // params
             val parDefList = funcBody.paramNameDefList
             for (parDef in parDefList) {
                 template.addTextSegment(String.format("\n---@param %s ", parDef.name))
-                template.addVariable(parDef.name, typeSuggest, TextExpression("table"), false)
+//                template.addVariable(parDef.name, typeSuggest, TextExpression("table"), false)
+                val name = MacroCallNode(CompleteMacro())
+                template.addVariable(parDef.name, name, TextExpression("table"), true)
             }
 
             template.addEndVariable()

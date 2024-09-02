@@ -178,18 +178,21 @@ class LuaStructureVisitor : LuaVisitor() {
                 handleTableExpr(expr, child)
             }
         }
+        o.valueExprList?.let {
+            PsiTreeUtil.getChildrenOfType(it, LuaExpr::class.java)?.forEach {
+//                it.accept(this)
+            }
+        }
     }
 
     override fun visitFuncDef(o: LuaFuncDef) {
         addChild(LuaGlobalFuncElement(o))
     }
 
-    override fun visitExprStat(o: LuaExprStat) {
-        val callExpr = o.expr as? LuaCallExpr
+    override fun visitCallExpr(o: LuaCallExpr) {
+        val args = o.args as? LuaListArgs
 
-        val args = callExpr?.args as? LuaListArgs
-
-        args?.exprList?.forEach{ arg ->
+        args?.exprList?.forEach { arg ->
             if (arg is LuaClosureExpr) {
                 val elem = LuaLocalFuncElement(arg, "<anonymous>", arg.paramSignature)
 
@@ -200,6 +203,12 @@ class LuaStructureVisitor : LuaVisitor() {
                 popContext()
             }
         }
+    }
+
+    override fun visitExprStat(o: LuaExprStat) {
+        val callExpr = o.expr as? LuaCallExpr ?: return
+
+        visitCallExpr(callExpr)
     }
 
     private fun handleTableExpr(o: LuaTableExpr, exprOwner: LuaTreeElement) {
@@ -326,7 +335,7 @@ class LuaStructureVisitor : LuaVisitor() {
     }
 
     override fun visitClassMethodDef(o: LuaClassMethodDef) {
-        handleCompoundName(o.classMethodName.expr)?.let { treeElem->
+        handleCompoundName(o.classMethodName.expr)?.let { treeElem ->
             val elem = LuaClassMethodElement(o, o.visibility)
 
             treeElem.addChild(elem)
@@ -371,10 +380,9 @@ class LuaStructureVisitor : LuaVisitor() {
             if (list.isEmpty()) {
                 return
             }
-            if(parent == null)
-            {
+            if (parent == null) {
                 // 如果这个是静态函数的话就不做检查了，都加进去
-                list.forEach(){
+                list.forEach() {
                     element.addChild(it)
                 }
                 return
@@ -386,8 +394,7 @@ class LuaStructureVisitor : LuaVisitor() {
                 val name = treeElement.name
                 var needAddChild = true
                 for ((i, e) in parentChild.withIndex()) {
-                    if (i == index)
-                    {
+                    if (i == index) {
                         continue
                     } else if (i > index) {
                         if (e is LuaTreeElement && e.name == name) {
@@ -399,8 +406,7 @@ class LuaStructureVisitor : LuaVisitor() {
                         if (e is LuaTreeElement && e.name == name) {
                             needAddChild = false
                             break
-                        }
-                        else if(e is LuaFuncElement) {
+                        } else if (e is LuaFuncElement) {
                             e.children.forEach { c ->
                                 if ((c is LuaVarElement) && c.name == name) {
                                     needAddChild = false
@@ -446,6 +452,6 @@ class LuaStructureVisitor : LuaVisitor() {
     }
 
     fun compressChildren() {
-        current?.children?.values?.forEach { element -> compressChild(element) }
+//        current?.children?.values?.forEach { element -> compressChild(element) }
     }
 }

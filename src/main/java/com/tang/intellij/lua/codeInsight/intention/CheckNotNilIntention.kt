@@ -22,14 +22,21 @@ import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.RangeMarker
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Pass
+import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
+import com.intellij.psi.TokenType
 import com.intellij.psi.codeStyle.CodeStyleManager
+import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.psi.util.elementType
 import com.intellij.refactoring.IntroduceTargetChooser
 import com.intellij.util.ThrowableRunnable
+import com.tang.intellij.lua.Constants
 import com.tang.intellij.lua.psi.*
 
-class CheckNotNilIntention : PsiElementBaseIntentionAction() {
+open class CheckNotNilIntention : PsiElementBaseIntentionAction() {
+    open var handleElement: PsiElement? = null
+
     override fun getText(): String {
         return "Surround nil check"
     }
@@ -37,10 +44,25 @@ class CheckNotNilIntention : PsiElementBaseIntentionAction() {
     override fun getFamilyName() = text
 
     override fun isAvailable(project: Project, editor: Editor?, element: PsiElement): Boolean {
-        return when (element.parent) {
-            is LuaIndexExpr -> true
-            is LuaNameExpr -> true
-            else -> false
+        if (element.elementType == LuaTypes.COLON || element.elementType == LuaTypes.DOT || element.elementType == TokenType.WHITE_SPACE) {
+            val prevVisibleLeaf = PsiTreeUtil.prevVisibleLeaf(element) ?: return false
+            return isAvailable(project, editor, prevVisibleLeaf)
+        }
+
+        getHandleElement(element)?.let {
+            handleElement = it
+            return true
+        }
+        return false
+    }
+
+    fun getHandleElement(element: PsiElement): PsiElement? {
+        return when {
+            element is LuaIndexExpr -> element
+            element is LuaNameExpr -> element
+            element.parent is LuaIndexExpr -> element.parent
+            element.parent is LuaNameExpr -> element.parent
+            else -> null
         }
     }
 
@@ -52,11 +74,11 @@ class CheckNotNilIntention : PsiElementBaseIntentionAction() {
         if (!element.containingFile.isPhysical) {
             return
         }
-        val expr = element.parent as LuaExpr
+        val expr = handleElement as LuaExpr
         val luaStatement = ExpressionUtil.getLuaStatement(expr) ?: return
 
         // 把当前元素替换
-        val psiFile = expr.containingFile
+        val psiFile = element.containingFile
         when (expr) {
             is LuaNameExpr -> {
                 val text = expr.text
@@ -66,7 +88,9 @@ class CheckNotNilIntention : PsiElementBaseIntentionAction() {
             is LuaIndexExpr -> {
                 val texts = mutableListOf<PsiElement>()
                 handleLuaIndexExpr(expr, texts)
-                if (texts.size == 1) {
+                if (texts.isEmpty()) {
+                    return
+                } else if (texts.size == 1) {
                     handle(editor, project, expr.text, luaStatement, psiFile)
                 } else if (editor != null) {
                     IntroduceTargetChooser.showChooser(editor, texts, Pass.create {
@@ -93,6 +117,9 @@ class CheckNotNilIntention : PsiElementBaseIntentionAction() {
     }
 
     private fun handleLuaIndexExpr(srcExpr: LuaExpr, texts: MutableList<PsiElement>) {
+        if (srcExpr is LuaNameExpr && (srcExpr.text == Constants.WORD_SELF || srcExpr.text == Constants.WORD_G)) {
+            return
+        }
         texts.add(srcExpr)
         if (srcExpr is LuaIndexExpr) {
             val expr = srcExpr.exprList.first() as LuaExpr
@@ -100,27 +127,39 @@ class CheckNotNilIntention : PsiElementBaseIntentionAction() {
         }
     }
 
-    private fun handle(
-        editor: Editor?, project: Project, text: String, luaStatement: PsiElement, psiFile: PsiFile
-    ) {
+    protected fun handle(editor: Editor?, project: Project, text: String, luaStatement: PsiElement, psiFile: PsiFile) {
+        if (editor == null)
+            return
         val replaceRunnable = Runnable {
             var marker: RangeMarker? = null
-            if (editor != null) {
-                marker = editor.document.createRangeMarker(luaStatement.textRange)
-            }
-            val element = LuaElementFactory.createWith(project, "if $text then\n${luaStatement.text}\nend")
-            luaStatement.replace(element)
+            marker = editor.document.createRangeMarker(luaStatement.textRange)
+            val element = handleReplace(project, text, luaStatement)
 
+            val documentManager = PsiDocumentManager.getInstance(project)
+            documentManager.doPostponedOperationsAndUnblockDocument(editor.document)
             val styleManager = CodeStyleManager.getInstance(project)
             styleManager.adjustLineIndent(psiFile, element.textRange)
-            if (element is LuaIfStat && editor != null && marker != null) {
-                val element = psiFile.findElementAt(marker.startOffset)?.parent
-                if (element is LuaIfStat) {
-                    editor.caretModel.moveToOffset(element.exprList.last().textRange.endOffset)
-                }
-            }
-        }
-        WriteCommandAction.writeCommandAction(luaStatement.project).run(ThrowableRunnable<RuntimeException> { replaceRunnable.run() })
+            documentManager.commitDocument(editor.document)
 
+            val moveOffset = getMoveOffset(element, editor, psiFile, marker)
+            editor.caretModel.moveToOffset(moveOffset)
+        }
+
+        WriteCommandAction.writeCommandAction(luaStatement.project).run(ThrowableRunnable<RuntimeException> { replaceRunnable.run() })
     }
+
+    protected open fun handleReplace(project: Project, text: String, luaStatement: PsiElement): PsiElement {
+        val element = LuaElementFactory.createWith(project, "if $text then\n${luaStatement.text}\nend")
+        luaStatement.replace(element)
+        return element
+    }
+
+    protected open fun getMoveOffset(element: PsiElement, editor: Editor, psiFile: PsiFile, marker: RangeMarker): Int {
+        val element = psiFile.findElementAt(marker.startOffset)?.parent
+        if (element is LuaIfStat) {
+            return element.exprList.last().textRange.endOffset
+        }
+        return marker.startOffset
+    }
+
 }

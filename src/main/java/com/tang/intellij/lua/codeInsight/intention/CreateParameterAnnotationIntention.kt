@@ -19,6 +19,7 @@ package com.tang.intellij.lua.codeInsight.intention
 import com.intellij.codeInsight.intention.impl.BaseIntentionAction
 import com.intellij.codeInsight.template.impl.MacroCallNode
 import com.intellij.codeInsight.template.impl.TextExpression
+import com.intellij.codeInsight.template.macro.CompleteMacro
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiFile
@@ -65,7 +66,7 @@ class CreateParameterAnnotationIntention : BaseIntentionAction() {
         if (owner != null) {
             LuaCommentUtil.insertTemplate(owner, editor) { _, template ->
                 template.addTextSegment(String.format("---@param %s ", parDef.name))
-                val name = MacroCallNode(SuggestTypeMacro())
+                val name = MacroCallNode(CompleteMacro())
                 template.addVariable("type", name, TextExpression("table"), true)
                 template.addEndVariable()
             }

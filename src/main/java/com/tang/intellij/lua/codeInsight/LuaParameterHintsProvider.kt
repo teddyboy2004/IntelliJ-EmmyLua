@@ -22,10 +22,10 @@ import com.intellij.codeInsight.hints.InlayParameterHintsProvider
 import com.intellij.codeInsight.hints.Option
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
+import com.tang.intellij.lua.project.LuaSettings
 import com.tang.intellij.lua.psi.*
 import com.tang.intellij.lua.search.SearchContext
 import com.tang.intellij.lua.ty.*
-import java.util.*
 
 /**
 
@@ -33,25 +33,41 @@ import java.util.*
  */
 class LuaParameterHintsProvider : InlayParameterHintsProvider {
     companion object {
-        private val ARGS_HINT = Option("lua.hints.show_args_type",
+        private val ARGS_HINT = Option(
+            "lua.hints.show_args_type",
             { "Show argument name hints" },
-            true)
+            true
+        )
 
-        private val LOCAL_VARIABLE_HINT = Option("lua.hints.show_local_var_type",
+        private val LOCAL_VARIABLE_HINT = Option(
+            "lua.hints.show_local_var_type",
             { "Show local variable type hints" },
-            false)
-        private val PARAMETER_TYPE_HINT = Option("lua.hints.show_parameter_type",
+            false
+        )
+        private val PARAMETER_TYPE_HINT = Option(
+            "lua.hints.show_parameter_type",
             { "Show parameter type hints" },
-            false)
-        private val FUNCTION_HINT = Option("lua.hints.show_function_type",
+            false
+        )
+        private val FUNCTION_HINT = Option(
+            "lua.hints.show_function_type",
             { "Show function return type hints" },
-            false)
+            false
+        )
+        internal val BLOCK_HINT = Option(
+            "lua.hints.show_block_type",
+            { "Show block hints" },
+            true
+        )
         private const val TYPE_INFO_PREFIX = "@TYPE@"
-        private var EXPR_HINT = arrayOf(LuaLiteralExpr::class.java,
-                LuaBinaryExpr::class.java,
-                LuaUnaryExpr::class.java,
-                LuaClosureExpr::class.java,
-                LuaTableExpr::class.java)
+        private const val BLOCK_INFO_PREFIX = "@BLOCK@"
+        private var EXPR_HINT = arrayOf(
+            LuaLiteralExpr::class.java,
+            LuaBinaryExpr::class.java,
+            LuaUnaryExpr::class.java,
+            LuaClosureExpr::class.java,
+            LuaTableExpr::class.java
+        )
     }
 
     override fun getParameterHints(psi: PsiElement): List<InlayInfo> {
@@ -74,31 +90,28 @@ class LuaParameterHintsProvider : InlayParameterHintsProvider {
             sig.processArgs(null, callExpr.isMethodColonCall) { index, paramInfo ->
                 val expr = exprList.getOrNull(index) ?: return@processArgs false
                 val show =
-                if (index == 0 && isInstanceMethodUsedAsStaticMethod) {
-                    true
-                } else PsiTreeUtil.instanceOf(expr, *EXPR_HINT)
+                    if (index == 0 && isInstanceMethodUsedAsStaticMethod) {
+                        true
+                    } else PsiTreeUtil.instanceOf(expr, *EXPR_HINT)
                 if (show)
                     list.add(InlayInfo(paramInfo.name, expr.node.startOffset))
                 true
             }
-        }
-        else if (psi is LuaParamNameDef) {
+        } else if (psi is LuaParamNameDef) {
             if (PARAMETER_TYPE_HINT.get()) {
                 val type = psi.guessType(SearchContext.get(psi.project))
                 if (!Ty.isInvalid(type)) {
                     return listOf(InlayInfo("$TYPE_INFO_PREFIX${type.displayName}", psi.textOffset + psi.textLength))
                 }
             }
-        }
-        else if (psi is LuaNameDef) {
+        } else if (psi is LuaNameDef) {
             if (LOCAL_VARIABLE_HINT.get()) {
                 val type = psi.guessType(SearchContext.get(psi.project))
                 if (!Ty.isInvalid(type)) {
                     return listOf(InlayInfo("$TYPE_INFO_PREFIX${type.displayName}", psi.textOffset + psi.textLength))
                 }
             }
-        }
-        else if (psi is LuaFuncBodyOwner) {
+        } else if (psi is LuaFuncBodyOwner) {
             val paren = psi.funcBody?.rparen
             if (FUNCTION_HINT.get() && paren != null) {
                 val type = psi.guessReturnType(SearchContext.get(psi.project))
@@ -108,9 +121,9 @@ class LuaParameterHintsProvider : InlayParameterHintsProvider {
                 }
             }
         }
-
         return list
     }
+
 
     override fun getHintInfo(psiElement: PsiElement): HintInfo? = null
 
@@ -126,8 +139,11 @@ class LuaParameterHintsProvider : InlayParameterHintsProvider {
 
     override fun getInlayPresentation(inlayText: String): String {
         if (inlayText.startsWith(TYPE_INFO_PREFIX)) {
-            return " : ${inlayText.substring(TYPE_INFO_PREFIX.length)}"
+            return ":${inlayText.substring(TYPE_INFO_PREFIX.length)}"
         }
-        return "$inlayText : "
+        if (inlayText.startsWith(BLOCK_INFO_PREFIX)) {
+            return "${inlayText.substring(BLOCK_INFO_PREFIX.length)}"
+        }
+        return "$inlayText:"
     }
 }

@@ -17,28 +17,19 @@
 package com.tang.intellij.lua.ty
 
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.project.clearCachesForAllProjectsStartingWith
-import com.intellij.psi.PsiComment
-import com.intellij.psi.PsiDocumentManager
-import com.intellij.psi.PsiElement
-import com.intellij.psi.PsiNameIdentifierOwner
-import com.intellij.psi.util.PsiTreeUtil
-import com.intellij.refactoring.suggested.startOffset
 import com.tang.intellij.lua.Constants
-import com.tang.intellij.lua.comment.psi.LuaDocCommentString
+import com.tang.intellij.lua.comment.psi.LuaDocTagAlias
 import com.tang.intellij.lua.comment.psi.LuaDocTagField
-import com.tang.intellij.lua.comment.psi.api.LuaComment
 import com.tang.intellij.lua.documentation.renderComment
-import com.tang.intellij.lua.lang.type.LuaString
-import com.tang.intellij.lua.project.LuaSettings
+import com.tang.intellij.lua.documentation.surroundHighlight
 import com.tang.intellij.lua.psi.*
-import com.tang.intellij.lua.psi.search.LuaShortNamesManager
 import com.tang.intellij.lua.refactoring.LuaRefactoringUtil
 import com.tang.intellij.lua.search.SearchContext
 import com.tang.intellij.lua.stubs.index.LuaShortNameIndex
 
 interface ITyRenderer {
-    var renderDetail: Boolean
+    var renderClassDetail: Boolean
+    var renderTableDetail:Boolean
     var project: Project?
 
     fun render(ty: ITy): String
@@ -55,12 +46,8 @@ private val MaxSingleLineUnionMembers = 5;
 private val MaxSingleLineGenericParams = 5;
 
 open class TyRenderer : TyVisitor(), ITyRenderer {
-    var _renderDetail = false
-    override var renderDetail: Boolean
-        get() = _renderDetail
-        set(value) {
-            _renderDetail = value
-        }
+    override var renderClassDetail: Boolean = false
+    override var renderTableDetail: Boolean = false
     override var project: Project? = null
 
     override fun render(ty: ITy): String {
@@ -132,23 +119,33 @@ open class TyRenderer : TyVisitor(), ITyRenderer {
         render(signature.returnTy, sb)
     }
 
-    open fun renderClass(clazz: ITyClass): String {
+    open fun renderClass(clazz: ITyClass): Any {
         return when {
             clazz is TyDocTable -> {
-                val list = mutableListOf<String>()
-                clazz.table.tableFieldList.forEach { it.ty?.let { ty -> list.add("${it.name}: ${render(ty.getType())}") } }
-                "{ ${list.joinToString(", ")} }"
+                var text = "table"
+                if (renderTableDetail) {
+                    val list = mutableListOf<String>()
+                    clazz.table.tableFieldList.forEach { it.ty?.let { ty -> list.add("${it.name}: ${render(ty.getType())}") } }
+                    text = "{ ${list.joinToString(", ")} }"
+                }
+                else if ((clazz.table.parent.parent is LuaDocTagAlias)) {
+                    val s = (clazz.table.parent.parent as LuaDocTagAlias).id?.text
+                    if (!s.isNullOrEmpty()) {
+                        text = s
+                    }
+                }
+                text
             }
 
-            clazz is TyClass && renderDetail -> renderClassMember(clazz)
+            clazz is TyClass && renderClassDetail -> renderClassMember(clazz)
             clazz is TySerializedClass -> renderType(clazz.varName)
             clazz.hasFlag(TyFlags.ANONYMOUS_TABLE) -> {
                 var type = Constants.WORD_TABLE
                 if (clazz is TyTable) {
-                    PsiTreeUtil.getParentOfType(clazz.table, LuaDeclaration::class.java).let { declaration ->
-                        val psiNameIdentifierOwner = PsiTreeUtil.findChildOfType(declaration, PsiNameIdentifierOwner::class.java)
-                        if (psiNameIdentifierOwner != null && psiNameIdentifierOwner.name != null) {
-                            type = psiNameIdentifierOwner.name!!
+                    if (clazz.table.parent is LuaTableField) {
+                        val tableField = clazz.table.parent as LuaTableField
+                        if (tableField.id != null) {
+                            type = tableField.id!!.text
                         }
                     }
                 }
@@ -222,7 +219,7 @@ open class TyRenderer : TyVisitor(), ITyRenderer {
             val indexTy = if (name == null) guessType else null
             val key = name ?: "[${render(indexTy ?: Ty.VOID)}]"
             guessType.let { fieldTy ->
-                renderDetail = false
+                renderClassDetail = false
                 val renderedFieldTy: String = if (fieldTy is TyTable) {
                     var str: String? = null
                     if (member is LuaTableField) {
@@ -241,7 +238,7 @@ open class TyRenderer : TyVisitor(), ITyRenderer {
                 } else {
                     render(fieldTy ?: Ty.UNKNOWN)
                 }
-                renderDetail = true
+                renderClassDetail = true
                 val comment = StringBuilder()
                 if (member is LuaCommentOwner) {
                     renderComment(comment, member, this)
@@ -269,7 +266,7 @@ open class TyRenderer : TyVisitor(), ITyRenderer {
         if (clazz is TySerializedClass && list.isEmpty()) {
             return Constants.WORD_NIL
         }
-        return "$className ${joinSingleLineOrWrap(list, MaxSingleLineTableMembers, " ", "{", "}")}"
+        return "${className.surroundHighlight(bgColor = "transparent", color = "#FED330")} ${joinSingleLineOrWrap(list, MaxSingleLineTableMembers, " ", "{", "}")}"
     }
 
 
@@ -296,7 +293,7 @@ open class TyRenderer : TyVisitor(), ITyRenderer {
             if (list.size <= maxOnLine && !wrapLine) {
                 list.joinToString("$divider ", if (spaceWrapItems) "$prefix " else prefix, if (spaceWrapItems) " $suffix" else suffix)
             } else {
-                list.joinToString("$divider\n  ", "$prefix\n  ", "\n" + suffix)
+                list.joinToString("$divider<br>  ", "$prefix<br>  ", "<br>$suffix")
             }
         }
     }

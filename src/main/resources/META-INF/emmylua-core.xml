@@ -93,6 +93,10 @@
         <codeInsight.lineMarkerProvider language="Lua" implementationClass="com.tang.intellij.lua.codeInsight.LuaLineMarkerProvider"/>
         <codeInsight.gotoSuper language="Lua" implementationClass="com.tang.intellij.lua.editor.LuaGotoSuperHandler"/>
         <codeInsight.parameterNameHints language="Lua" implementationClass="com.tang.intellij.lua.codeInsight.LuaParameterHintsProvider"/>
+        <codeInsight.inlayProvider language="Lua" implementationClass="com.tang.intellij.lua.codeInsight.LuaInlayHintsProvider"/>
+        <applicationService serviceImplementation="com.tang.intellij.lua.codeInsight.LuaInlayHintState"/>
+        <codeInsight.inlayProvider language="Lua" implementationClass="com.tang.intellij.lua.codeInsight.LuaExtraInlayHintsProvider"/>
+        <applicationService serviceImplementation="com.tang.intellij.lua.codeInsight.LuaExtraInlayHintsProvider$LuaExtraInlayHintState"/>
         <codeInsight.parameterInfo language="Lua" implementationClass="com.tang.intellij.lua.codeInsight.LuaParameterInfoHandler"/>
         <codeInsight.template.postfixTemplateProvider language="Lua" implementationClass="com.tang.intellij.lua.codeInsight.postfix.LuaPostfixTemplateProvider"/>
         <highlightVisitor implementation="com.tang.intellij.lua.codeInsight.LuaRainbowVisitor"/>
@@ -252,6 +256,16 @@
             <language>Lua</language>
             <category>Lua</category>
             <className>com.tang.intellij.lua.codeInsight.intention.SplitValueDeclarationIntention</className>
+        </intentionAction>
+        <intentionAction>
+            <language>Lua</language>
+            <category>Lua</category>
+            <className>com.tang.intellij.lua.codeInsight.intention.JoinIfConditionIntention</className>
+        </intentionAction>
+        <intentionAction>
+            <language>Lua</language>
+            <category>Lua</category>
+            <className>com.tang.intellij.lua.codeInsight.intention.AppendNotNilIntention</className>
         </intentionAction>
 
         <lang.inspectionSuppressor language="Lua" implementationClass="com.tang.intellij.lua.codeInsight.inspection.LuaSuppressManager"/>

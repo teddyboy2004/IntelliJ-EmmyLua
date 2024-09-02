@@ -20,6 +20,7 @@ import com.intellij.openapi.command.CommandProcessor
 import com.intellij.openapi.command.UndoConfirmationPolicy
 import com.intellij.openapi.editor.LogicalPosition
 import com.intellij.openapi.editor.ScrollType
+import com.intellij.openapi.editor.VisualPosition
 import com.intellij.openapi.editor.actionSystem.DocCommandGroupId
 import com.intellij.openapi.editor.colors.EditorColors
 import com.intellij.openapi.editor.ex.EditorEx
@@ -181,7 +182,7 @@ internal class StickyLineComponent(private val editor: EditorEx) : JComponent() 
     }
 
     private fun editorY(): Int {
-        val editorY = editor.logicalPositionToXY(LogicalPosition(primaryVisualLine, 0)).y
+        val editorY = editor.visualLineToY(primaryVisualLine)
         return if (isLineOutOfPanel()) editorY - y else editorY
     }
 
