@@ -76,10 +76,10 @@ open class LuaBaseCustomConfig {
                 }
             }
         } else if (expr is LuaNameExpr) {
-            if (!funcNameReg!!.matches(Constants.WORD_G)) {
+            if (!funcNameReg!!.matches(expr.text)) {
                 return false
             }
-            if (typeNameReg!!.matches(expr.text)) {
+            if (typeNameReg!!.matches(Constants.WORD_G)) {
                 return true
             }
         }

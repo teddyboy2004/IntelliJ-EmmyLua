@@ -110,7 +110,6 @@ class LuaExtraInlayHintsProvider : InlayHintsProvider<LuaExtraInlayHintsProvider
         private fun collectPsi(psi: PsiElement, editor: Editor, sink: InlayHintsSink) {
             if (psi is LuaCallExpr) {
                 handleElement(psi, sink)
-                return
             }
             if (psi is LuaIndexExpr) {
                 return
