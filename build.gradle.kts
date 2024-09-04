@@ -16,7 +16,10 @@
 
 import de.undercouch.gradle.tasks.download.*
 import org.apache.tools.ant.taskdefs.condition.Os
+import org.gradle.internal.impldep.com.google.api.client.util.DateTime
 import java.io.ByteArrayOutputStream
+import java.text.SimpleDateFormat
+import java.util.*
 
 plugins {
     id("org.jetbrains.intellij").version("1.13.3")
@@ -86,8 +89,10 @@ if (isCI) {
         args("config", "--global", "user.name", "tangzx")
     }
 }
+val currentDate = Date()
+val dateFormat = SimpleDateFormat("yyMMdd")
 
-version = "${version}-IDEA${buildVersion}"
+version = "${version}-IDEA${buildVersion}-${dateFormat.format(currentDate)}"
 
 fun getRev(): String {
     val os = ByteArrayOutputStream()

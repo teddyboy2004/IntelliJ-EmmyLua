@@ -12,6 +12,7 @@ import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.TextEditor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
+import com.intellij.openapi.util.ProperTextRange
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
@@ -34,9 +35,10 @@ class StickyPanelManager(
     val fem: FileEditorManager,
     val textEditor: TextEditor
 ) : VisibleAreaListener, Disposable, CaretListener {
+    var properTextRange: ProperTextRange? = null
     val stickyPanel: StickyLinesPanel = StickyLinesPanel(editor)
 
-    private var activeVisualArea: Rectangle = Rectangle()
+    var activeVisualArea: Rectangle = Rectangle()
     private var activeVisualLine: Int = -1
     private val checkCaretAlarm = Alarm()
 
@@ -69,6 +71,7 @@ class StickyPanelManager(
 
     override fun visibleAreaChanged(event: VisibleAreaEvent) {
         val needAppend = stickyPanel.parent == null
+        properTextRange = editor.calculateVisibleRange()
         if (needAppend) {
             val component = getParentComponent()
             if (component is JScrollPane) {

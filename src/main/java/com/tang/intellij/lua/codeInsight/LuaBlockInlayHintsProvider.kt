@@ -24,6 +24,7 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.components.State
 import com.intellij.openapi.components.Storage
+import com.intellij.openapi.editor.Document
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.ScrollType
 import com.intellij.openapi.util.TextRange
@@ -36,6 +37,7 @@ import com.intellij.refactoring.suggested.endOffset
 import com.intellij.refactoring.suggested.startOffset
 import com.intellij.util.ui.FormBuilder
 import com.intellij.util.xmlb.XmlSerializerUtil
+import com.tang.intellij.lua.editor.formatter.blocks.LuaTableBlock
 import com.tang.intellij.lua.psi.*
 import java.util.*
 import javax.swing.JComponent
@@ -134,35 +136,51 @@ class LuaInlayHintsCollector(file: PsiFile, editor: Editor) : InlayHintsCollecto
     }
 
     override fun collect(psi: PsiElement, editor: Editor, sink: InlayHintsSink): Boolean {
-        handleCollect(psi, editor, sink)
-        return true
+        if (psi is LuaPsiFile) {
+            val document = editor.document
+            collectPsi(psi, editor, document, sink)
+        }
+        return false
     }
 
-    private fun handleCollect(psi: PsiElement, editor: Editor, sink: InlayHintsSink) {
+    private fun collectPsi(psi: PsiElement, editor: Editor, document: Document, sink: InlayHintsSink) {
+        val startLine = document.getLineNumber(psi.startOffset)
+        val endLine = document.getLineNumber(psi.endOffset)
+        val settings = LuaInlayHintState.instance
+        val maxLine = settings.maxline
+        if (endLine - startLine < maxLine) {
+            return
+        }
+        handleCollect(psi, editor, sink)
+        psi.children.forEach {
+            collectPsi(it, editor, document, sink)
+        }
+    }
+
+    private fun handleCollect(psi: PsiElement, editor: Editor, sink: InlayHintsSink): Boolean {
         val settings = LuaInlayHintState.instance
         val maxLine = settings.maxline
         val maxLen = settings.numberOfLetters
+        var elementOffset: Int = -1
+        var exprOffset: Int = -1
+        var text: String? = null
+        var prefixText = ""
+        var placeOffset = psi.endOffset
+        var placeAtTheEndOfLine = true
+        val manager = PsiDocumentManager.getInstance(psi.project)
+        val document = manager.getDocument(psi.containingFile)
         if (psi is LuaBlock) {
             val parent = psi.parent
             if (parent != null) {
-                val manager = PsiDocumentManager.getInstance(psi.project)
-                val document = manager.getDocument(parent.containingFile)
                 if (document != null) {
-                    var elementOffset: Int = -1
-                    var exprOffset: Int = -1
-                    var presentation: InlayPresentation?
-                    var text: String? = null
-                    var prefixText = ""
                     val startLine = document.getLineNumber(parent.startOffset)
                     val endLine = document.getLineNumber(parent.endOffset)
-                    var placeOffset = psi.endOffset
-                    var placeAtTheEndOfLine = true
                     if (startLine + maxLine <= endLine) {
                         when (parent) {
                             is LuaIfStat -> {
                                 val elementLine = document.getLineNumber(psi.endOffset)
                                 if (elementLine - startLine < maxLine) {
-                                    return
+                                    return false
                                 }
                                 val element = getIfBlockStartElement(psi)
                                 val expr = PsiTreeUtil.getNextSiblingOfType(element, LuaExpr::class.java)
@@ -232,42 +250,58 @@ class LuaInlayHintsCollector(file: PsiFile, editor: Editor) : InlayHintsCollecto
                                 }
                             }
                         }
+                    } else {
+                        return false
                     }
-                    if (elementOffset == -1) {
-                        elementOffset = exprOffset
+                }
+            }
+        } else if (psi is LuaTableExpr) {
+            if (document != null) {
+                val startLine = document.getLineNumber(psi.startOffset)
+                val endLine = document.getLineNumber(psi.endOffset)
+                if (startLine + maxLine <= endLine) {
+                    exprOffset = psi.startOffset
+                    document.getLineNumber(exprOffset).let {
+                        document.getText(TextRange(document.getLineStartOffset(it), document.getLineEndOffset(it))).let { text = it.trim() }
                     }
-                    if (text != null) {
-                        if (text!!.length >= maxLen) {
-                            text = text!!.substring(0, maxLen) + "..."
-                        }
-                        val spliterator = if (prefixText.isNotEmpty()) {
-                            " "
-                        } else {
-                            ""
-                        }
-                        text = "$prefixText$spliterator$text"
-                        val smallText = factory.smallText(text!!)
-                        presentation = factory.roundWithBackground(smallText)
-                        val p = factory.onClick(presentation, EnumSet.of(MouseButton.Middle, MouseButton.Right)) { mouseEvent, point ->
-                            var offset = -1
-                            offset = if (mouseEvent.button == 2) {
-                                exprOffset
-                            } else {
-                                elementOffset
-                            }
-                            if (offset >= 0) {
-                                editor.selectionModel.removeSelection(/* allCarets = */ true)
-                                editor.caretModel.moveToOffset(offset)
-                                editor.scrollingModel.scrollToCaret(ScrollType.RELATIVE)
-                            }
-
-                        }
-                        sink.addInlineElement(placeOffset, true, p, placeAtTheEndOfLine)
-                    }
-
+                } else {
+                    return false
                 }
             }
         }
+        if (elementOffset == -1) {
+            elementOffset = exprOffset
+        }
+        if (text != null) {
+            val spliterator = if (prefixText.isNotEmpty()) {
+                " "
+            } else {
+                ""
+            }
+            text = "$prefixText$spliterator$text"
+            if (text!!.length >= maxLen) {
+                text = text!!.substring(0, maxLen) + "..."
+            }
+            val smallText = factory.smallText(text!!)
+            val presentation: InlayPresentation = factory.roundWithBackground(smallText)
+            val p = factory.onClick(presentation, EnumSet.of(MouseButton.Middle, MouseButton.Right)) { mouseEvent, point ->
+                var offset = -1
+                offset = if (mouseEvent.button == 2) {
+                    exprOffset
+                } else {
+                    elementOffset
+                }
+                if (offset >= 0) {
+                    editor.selectionModel.removeSelection(/* allCarets = */ true)
+                    editor.caretModel.moveToOffset(offset)
+                    editor.scrollingModel.scrollToCaret(ScrollType.RELATIVE)
+                }
+
+            }
+            sink.addInlineElement(placeOffset, true, p, placeAtTheEndOfLine)
+            return false
+        }
+        return true
     }
 
 }

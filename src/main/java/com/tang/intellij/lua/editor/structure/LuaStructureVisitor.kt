@@ -119,7 +119,10 @@ class LuaStructureVisitor : LuaVisitor() {
 
             var owner: LuaTreeElement? = null
             if (nameExpr is LuaIndexExpr) {
-                owner = handleCompoundName(nameExpr.prefixExpr) ?: return
+                val namePartExpr = nameExpr.prefixExpr
+                if (namePartExpr.text != Constants.WORD_SELF) {
+                    owner = handleCompoundName(namePartExpr) ?: return
+                }
             }
 
             val child = if (expr is LuaClosureExpr) {
@@ -180,7 +183,7 @@ class LuaStructureVisitor : LuaVisitor() {
         }
         o.valueExprList?.let {
             PsiTreeUtil.getChildrenOfType(it, LuaExpr::class.java)?.forEach {
-//                it.accept(this)
+                it.accept(this)
             }
         }
     }
@@ -270,6 +273,8 @@ class LuaStructureVisitor : LuaVisitor() {
 
             if (valueExpr is LuaTableExpr) {
                 handleTableExpr(valueExpr, exprOwner)
+            } else if (valueExpr is LuaFuncBodyOwner) {
+                valueExpr.funcBody?.accept(this)
             }
         }
     }

@@ -27,6 +27,7 @@ import com.intellij.openapi.components.Storage
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.ScrollType
 import com.intellij.openapi.fileEditor.FileEditorManager
+import com.intellij.openapi.util.TextRange
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
@@ -36,10 +37,7 @@ import com.intellij.util.ui.FormBuilder
 import com.intellij.util.xmlb.XmlSerializerUtil
 import com.tang.intellij.lua.project.LuaCustomHandleType
 import com.tang.intellij.lua.project.LuaSettings
-import com.tang.intellij.lua.psi.LuaCallExpr
-import com.tang.intellij.lua.psi.LuaClassMethodDef
-import com.tang.intellij.lua.psi.LuaListArgs
-import com.tang.intellij.lua.psi.resolveRequireFile
+import com.tang.intellij.lua.psi.*
 import com.tang.intellij.lua.psi.search.LuaShortNamesManager
 import com.tang.intellij.lua.search.SearchContext
 import com.tang.intellij.lua.ty.*
@@ -103,24 +101,34 @@ class LuaExtraInlayHintsProvider : InlayHintsProvider<LuaExtraInlayHintsProvider
         private val factory: PresentationFactory = PresentationFactory(editor)
 
         override fun collect(psi: PsiElement, editor: Editor, sink: InlayHintsSink): Boolean {
-
-            handleElement(psi, editor, sink)
-            return true
+            if (psi is LuaPsiFile) {
+                collectPsi(psi, editor,  sink)
+            }
+            return false
         }
 
-        fun handleElement(psi: PsiElement, editor: Editor, sink: InlayHintsSink) {
-            if (psi !is LuaCallExpr) {
+        private fun collectPsi(psi: PsiElement, editor: Editor, sink: InlayHintsSink) {
+            if (psi is LuaCallExpr) {
+                handleElement(psi, sink)
                 return
             }
-            if (editor.isDisposed) {
+            if (psi is LuaIndexExpr) {
+                return
+            }
+            psi.children.forEach {
+                collectPsi(it, editor, sink)
+            }
+        }
+
+        fun handleElement(psi: PsiElement, sink: InlayHintsSink) {
+            if (psi !is LuaCallExpr) {
                 return
             }
             val callExpr = psi
             val args = callExpr.args as? LuaListArgs ?: return
             val exprList = args.exprList
-            val project = callExpr.getProject()
+            val project = psi.project
             val context = SearchContext.get(project)
-            val type = callExpr.guessParentType(context)
             LuaSettings.getCustomHandleType(callExpr, -1, LuaSettings.ALL_LUA_CUSTOM_HANDLE_TYPE)?.let { config ->
                 LuaSettings.getCustomHandleString(config, callExpr, context)?.let {
                     var virtualFile: VirtualFile? = null
@@ -163,9 +171,6 @@ class LuaExtraInlayHintsProvider : InlayHintsProvider<LuaExtraInlayHintsProvider
 
             }
 
-            val ty = TyUnion.find(type, ITyFunction::class.java) ?: return
-            val sig = ty.findPerfectSignature(callExpr)
-            val preSigSize = sig.params.size
             LuaSettings.handleCustomParam(callExpr) { cfg, findMember ->
                 val memberType = infer(findMember, context)
                 var find = false
@@ -177,6 +182,10 @@ class LuaExtraInlayHintsProvider : InlayHintsProvider<LuaExtraInlayHintsProvider
                     if (findMember is LuaClassMethodDef) {
                         colonStyle = !findMember.isStatic
                     }
+                    val type = callExpr.guessParentType(context)
+                    val ty = TyUnion.find(type, ITyFunction::class.java) ?: return@handleCustomParam false
+                    val sig = ty.findPerfectSignature(callExpr)
+                    val preSigSize = sig.params.size
                     extraSig.processArgs(memberType, colonStyle) { index, param ->
                         val extraIndex = index + preSigSize - paramOffset
                         if (extraIndex >= 0) {
