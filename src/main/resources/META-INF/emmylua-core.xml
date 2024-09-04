@@ -135,7 +135,7 @@
         <stubIndex implementation="com.tang.intellij.lua.stubs.index.LuaAliasIndex"/>
         <stubIndex implementation="com.tang.intellij.lua.stubs.index.LuaUnknownClassMemberIndex"/>
         <stubIndex implementation="com.tang.intellij.lua.stubs.index.LuaUnknownCallerIndex"/>
-        <!--        <stubIndex implementation="com.tang.intellij.lua.stubs.index.LuaRequirePathIndex"/>-->
+        <stubIndex implementation="com.tang.intellij.lua.stubs.index.LuaLiteralIndex"/>
         <fileBasedIndex implementation="com.tang.intellij.lua.stubs.index.LuaStringArgIndex"/>
 
         <!--surround descriptors-->

@@ -17,6 +17,7 @@
 package com.tang.intellij.lua.editor.structure
 
 import com.intellij.ide.util.treeView.smartTree.TreeElement
+import com.intellij.psi.PsiComment
 import com.intellij.psi.PsiNamedElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.rd.util.remove
@@ -95,6 +96,15 @@ class LuaStructureVisitor : LuaVisitor() {
         })
 
         return elements
+    }
+
+    override fun visitComment(comment: PsiComment) {
+        super.visitComment(comment)
+        comment.acceptChildren(object : LuaDocVisitor() {
+            override fun visitTagClass(o: LuaDocTagClass) {
+                addChild(LuaClassElement(o))
+            }
+        })
     }
 
     override fun visitAssignStat(o: LuaAssignStat) {

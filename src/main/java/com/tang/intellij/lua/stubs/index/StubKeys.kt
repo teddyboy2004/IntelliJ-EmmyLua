@@ -33,5 +33,5 @@ object StubKeys {
     val ALIAS = StubIndexKey.createIndexKey<String, LuaDocTagAlias>("lua.index.alias")
     val UNKNOWN_MEMBER = StubIndexKey.createIndexKey<Int, LuaIndexExpr>("lua.index.unknown_class")
     val UNKNOWN_CALLER = StubIndexKey.createIndexKey<String, LuaNameExpr>("lua.index.unknown_caller")
-    val REQUIRE_PATH_INDEX = StubIndexKey.createIndexKey<String, LuaLiteralExpr>("lua.index.file_path")
+    val LITERAL_INDEX = StubIndexKey.createIndexKey<Int, LuaLiteralExpr>("lua.index.literal")
 }

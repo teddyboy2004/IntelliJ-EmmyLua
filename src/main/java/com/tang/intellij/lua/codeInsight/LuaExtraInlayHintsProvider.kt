@@ -27,7 +27,6 @@ import com.intellij.openapi.components.Storage
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.ScrollType
 import com.intellij.openapi.fileEditor.FileEditorManager
-import com.intellij.openapi.util.TextRange
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
@@ -102,7 +101,7 @@ class LuaExtraInlayHintsProvider : InlayHintsProvider<LuaExtraInlayHintsProvider
 
         override fun collect(psi: PsiElement, editor: Editor, sink: InlayHintsSink): Boolean {
             if (psi is LuaPsiFile) {
-                collectPsi(psi, editor,  sink)
+                collectPsi(psi, editor, sink)
             }
             return false
         }

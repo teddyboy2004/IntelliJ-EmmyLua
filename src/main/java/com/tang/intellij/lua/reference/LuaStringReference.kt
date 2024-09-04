@@ -31,7 +31,7 @@ import com.tang.intellij.lua.reference.LuaReferenceContributor.ReferenceType
 import com.tang.intellij.lua.search.SearchContext
 import com.tang.intellij.lua.ty.returnStatement
 
-class LuaStringReference(val expr: LuaLiteralExpr, private val referenceType: ReferenceType, private val referenceText: String) : PsiReferenceBase<LuaLiteralExpr>(expr) {
+class LuaStringReference(val expr: LuaLiteralExpr, private val referenceType: ReferenceType, val referenceText: String) : PsiReferenceBase<LuaLiteralExpr>(expr) {
 
     val id = expr
 
@@ -51,27 +51,30 @@ class LuaStringReference(val expr: LuaLiteralExpr, private val referenceType: Re
 
     override fun isReferenceTo(element: PsiElement): Boolean {
         val text = referenceText
-        when (referenceType) {
-            ReferenceType.None -> {
-                return false
-            }
-
-            ReferenceType.FilePath -> {
-                val shortPath = LuaFileUtil.getShortPath(id.project, element.containingFile.originalFile.virtualFile)
-                val path = shortPath.replace(".lua", "").replace('/', '.')
-                if (path == text) {
-                    return true
-                }
-            }
-
-            ReferenceType.Class -> {
-                if (element is LuaTypeDef) {
-                    if (element.type.displayName == text) {
-                        return true
-                    }
-                }
-            }
-        }
+//        when (referenceType) {
+//            ReferenceType.None -> {
+//                return false
+//            }
+//
+////            ReferenceType.FilePath -> {
+////                val shortPath = LuaFileUtil.getShortPath(id.project, element.containingFile.originalFile.virtualFile)
+////                val path = shortPath.replace(".lua", "").replace('/', '.')
+////                if (path == text) {
+////                    return true
+////                }
+////            }
+//
+//            ReferenceType.Class -> {
+//                if (element is LuaTypeDef) {
+//                    if (element.type.displayName == text) {
+//                        return true
+//                    }
+//                }
+//            }
+//
+//            else -> {
+//            }
+//        }
         return false
     }
 
@@ -117,7 +120,7 @@ class LuaStringReference(val expr: LuaLiteralExpr, private val referenceType: Re
     }
 
     companion object {
-        fun handleGetReference(expr: LuaLiteralExpr): PsiReference? {
+        fun handleGetReference(expr: LuaLiteralExpr): LuaStringReference? {
             var text = LuaString.getContent(expr.text).value
             if (text.isEmpty()) {
                 return null

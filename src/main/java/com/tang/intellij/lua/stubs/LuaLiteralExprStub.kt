@@ -21,10 +21,8 @@ import com.intellij.psi.stubs.IndexSink
 import com.intellij.psi.stubs.StubElement
 import com.intellij.psi.stubs.StubInputStream
 import com.intellij.psi.stubs.StubOutputStream
-import com.tang.intellij.lua.project.LuaSettings
 import com.tang.intellij.lua.psi.*
 import com.tang.intellij.lua.psi.impl.LuaLiteralExprImpl
-import com.tang.intellij.lua.stubs.index.LuaRequirePathIndex
 import com.tang.intellij.lua.stubs.index.StubKeys
 
 class LuaLiteralElementType
@@ -58,11 +56,7 @@ class LuaLiteralElementType
     }
 
     override fun indexStub(stub: LuaLiteralExprStub, sink: IndexSink) {
-//        val pathString = stub.string
-//        if (pathString != null && pathString.contains('.') or pathString.contains('/')) {
-//            val replace = pathString.replace('/', '.')
-//            sink.occurrence(StubKeys.REQUIRE_PATH_INDEX, replace)
-//        }
+        sink.occurrence(StubKeys.LITERAL_INDEX, stub.string.hashCode())
     }
 
     override fun createPsi(stub: LuaLiteralExprStub): LuaLiteralExpr {
@@ -71,9 +65,9 @@ class LuaLiteralElementType
 }
 
 class LuaLiteralExprStub(
-        val kind: LuaLiteralKind,
-        val tooLargerString: Boolean,
-        val string: String?,
-        parent: StubElement<*>?,
-        type: LuaStubElementType<*, *>
+    val kind: LuaLiteralKind,
+    val tooLargerString: Boolean,
+    val string: String?,
+    parent: StubElement<*>?,
+    type: LuaStubElementType<*, *>,
 ) : LuaExprStubImpl<LuaLiteralExpr>(parent, type)

@@ -1,18 +1,14 @@
 // This is a generated file. Not intended for manual editing.
 package com.tang.intellij.lua.psi.impl;
 
-import java.util.List;
-import org.jetbrains.annotations.*;
 import com.intellij.lang.ASTNode;
-import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiElementVisitor;
-import com.intellij.psi.util.PsiTreeUtil;
-import static com.tang.intellij.lua.psi.LuaTypes.*;
-import com.tang.intellij.lua.psi.*;
-import com.tang.intellij.lua.stubs.LuaLiteralExprStub;
 import com.intellij.psi.stubs.IStubElementType;
 import com.intellij.psi.tree.IElementType;
-import com.tang.intellij.lua.stubs.LuaExprStub;
+import com.tang.intellij.lua.psi.LuaLiteralExpr;
+import com.tang.intellij.lua.psi.LuaVisitor;
+import com.tang.intellij.lua.stubs.LuaLiteralExprStub;
+import org.jetbrains.annotations.NotNull;
 
 public class LuaLiteralExprImpl extends LuaLiteralExprMixin implements LuaLiteralExpr {
 

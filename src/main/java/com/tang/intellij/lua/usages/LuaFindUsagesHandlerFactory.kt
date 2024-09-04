@@ -22,27 +22,70 @@ import com.intellij.find.findUsages.FindUsagesOptions
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiReference
+import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.SearchScope
 import com.intellij.psi.search.searches.ReferencesSearch
 import com.intellij.usageView.UsageInfo
 import com.intellij.util.MergeQuery
 import com.intellij.util.Processor
+import com.tang.intellij.lua.comment.psi.LuaDocTagClass
+import com.tang.intellij.lua.project.LuaCustomHandleType
+import com.tang.intellij.lua.project.LuaCustomTypeConfig
+import com.tang.intellij.lua.project.LuaSettings
+import com.tang.intellij.lua.psi.LuaClassField
 import com.tang.intellij.lua.psi.LuaClassMethod
 import com.tang.intellij.lua.psi.search.LuaOverridenMethodsSearch
 import com.tang.intellij.lua.psi.search.LuaOverridingMethodsSearch
+import com.tang.intellij.lua.psi.stringValue
 import com.tang.intellij.lua.reference.LuaOverridingMethodReference
+import com.tang.intellij.lua.reference.LuaStringReference
 import com.tang.intellij.lua.search.SearchContext
+import com.tang.intellij.lua.stubs.index.LuaLiteralIndex
 import com.tang.intellij.lua.ty.ITyClass
 
 class LuaFindUsagesHandlerFactory : FindUsagesHandlerFactory() {
     override fun createFindUsagesHandler(element: PsiElement, forHighlightUsages: Boolean): FindUsagesHandler? {
         if (element is LuaClassMethod)
             return FindMethodUsagesHandler(element)
+        if (element is LuaDocTagClass)
+            return FindDocTagClassHandler(element)
         return null
     }
 
     override fun canFindUsages(element: PsiElement): Boolean {
-        return element is LuaClassMethod
+        return element is LuaClassMethod || element is LuaDocTagClass
+    }
+}
+
+class FindDocTagClassHandler(element: LuaDocTagClass) : FindUsagesHandler(element) {
+    override fun processElementUsages(element: PsiElement, processor: Processor<in UsageInfo>, options: FindUsagesOptions): Boolean {
+        if (super.processElementUsages(element, processor, options) && element is LuaDocTagClass) {
+            val nameMap = mutableMapOf<String, LuaCustomTypeConfig>()
+            LuaSettings.instance.customTypeCfg.forEach {
+                if (it.HandleType == LuaCustomHandleType.ClassName) {
+                    if (!nameMap.contains(it.ExtraParam)) {
+                        nameMap[it.ExtraParam] = it
+                    }
+                }
+            }
+            ApplicationManager.getApplication().runReadAction {
+                val context = SearchContext.get(element.project)
+                val name = element.name
+                nameMap.forEach {
+                    val className = it.value.getSrcName(name)
+                    if (className.isNotBlank()) {
+                        LuaLiteralIndex.find(className.hashCode(), context).forEach {
+                            if (it.stringValue == className) {
+                                if (LuaStringReference.handleGetReference(it)?.referenceText == name) {
+                                    processor.process(UsageInfo(it))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return true
     }
 }
 

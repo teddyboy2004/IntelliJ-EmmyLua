@@ -32,6 +32,7 @@ import com.tang.intellij.lua.stubs.index.LuaClassMemberIndex
 import com.tang.intellij.lua.ty.*
 import java.nio.charset.Charset
 import java.util.*
+import javax.print.DocFlavor.STRING
 
 
 // 返回类型
@@ -209,6 +210,34 @@ class LuaCustomTypeConfig : LuaBaseCustomConfig() {
     fun getClassName(typeName: String): String {
         if (HandleType != LuaCustomHandleType.ClassName) return typeName
         // 没处理就根据ExtraParam，初始化一下
+        initExtraParam()
+
+        if (!firstValue.isNullOrEmpty()) {
+            return if (secondValue != null) {
+                typeName.replace(firstValue!!, secondValue!!)
+            } else {
+                firstValue + typeName
+            }
+        }
+        return typeName
+    }
+
+    fun getSrcName(string: String): String {
+        if (HandleType != LuaCustomHandleType.ClassName) return string
+        // 没处理就根据ExtraParam，初始化一下
+        initExtraParam()
+
+        if (!firstValue.isNullOrEmpty()) {
+            return if (secondValue != null) {
+                string.replace(secondValue!!, firstValue!!)
+            } else {
+                string.substring(firstValue!!.length)
+            }
+        }
+        return string
+    }
+
+    private fun initExtraParam() {
         if (firstValue == null && ExtraParam.isNotBlank()) {
             if (ExtraParam.contains(',')) {
                 val strings = ExtraParam.split(',')
@@ -220,15 +249,6 @@ class LuaCustomTypeConfig : LuaBaseCustomConfig() {
                 firstValue = ExtraParam
             }
         }
-
-        if (!firstValue.isNullOrEmpty()) {
-            return if (secondValue != null) {
-                typeName.replace(firstValue!!, secondValue!!)
-            } else {
-                firstValue + typeName
-            }
-        }
-        return typeName
     }
 
     companion object {

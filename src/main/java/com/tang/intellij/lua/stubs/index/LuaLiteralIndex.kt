@@ -17,23 +17,23 @@
 
 package com.tang.intellij.lua.stubs.index
 
-import com.intellij.psi.stubs.StringStubIndexExtension
+import com.intellij.psi.stubs.IntStubIndexExtension
 import com.tang.intellij.lua.lang.LuaLanguage
 import com.tang.intellij.lua.psi.LuaLiteralExpr
 import com.tang.intellij.lua.search.SearchContext
 
-class LuaRequirePathIndex : StringStubIndexExtension<LuaLiteralExpr>() {
+class LuaLiteralIndex : IntStubIndexExtension<LuaLiteralExpr>() {
 
     override fun getVersion(): Int {
         return LuaLanguage.INDEX_VERSION
     }
 
-    override fun getKey() = StubKeys.REQUIRE_PATH_INDEX
+    override fun getKey() = StubKeys.LITERAL_INDEX
 
     companion object {
-        val instance = LuaRequirePathIndex()
+        val instance = LuaLiteralIndex()
 
-        fun find(key: String, searchContext: SearchContext): Collection<LuaLiteralExpr> {
+        fun find(key: Int, searchContext: SearchContext): Collection<LuaLiteralExpr> {
             return if (searchContext.isDumb) emptyList() else instance.get(key, searchContext.project, searchContext.scope)
         }
     }
