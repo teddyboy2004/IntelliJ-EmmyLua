@@ -29,6 +29,12 @@ class LuaLiteralElementType
     : LuaStubElementType<LuaLiteralExprStub, LuaLiteralExpr>("LITERAL_EXPR") {
 
     override fun shouldCreateStub(node: ASTNode): Boolean {
+        if (node.psi is LuaLiteralExpr) {
+            // 避免因为没有创建stub导致没有索引到文本
+            if ((node.psi as LuaLiteralExpr).kind == LuaLiteralKind.String) {
+                return true
+            }
+        }
         return createStubIfParentIsStub(node)
     }
 
@@ -56,7 +62,9 @@ class LuaLiteralElementType
     }
 
     override fun indexStub(stub: LuaLiteralExprStub, sink: IndexSink) {
-        sink.occurrence(StubKeys.LITERAL_INDEX, stub.string.hashCode())
+        if (stub.kind == LuaLiteralKind.String) {
+            sink.occurrence(StubKeys.LITERAL_INDEX, stub.string.hashCode())
+        }
     }
 
     override fun createPsi(stub: LuaLiteralExprStub): LuaLiteralExpr {

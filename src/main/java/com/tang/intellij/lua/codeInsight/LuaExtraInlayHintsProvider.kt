@@ -111,6 +111,7 @@ class LuaExtraInlayHintsProvider : InlayHintsProvider<LuaExtraInlayHintsProvider
                 handleElement(psi, sink)
             }
             if (psi is LuaIndexExpr) {
+                handleElement(psi.prefixExpr, sink)
                 return
             }
             psi.children.forEach {

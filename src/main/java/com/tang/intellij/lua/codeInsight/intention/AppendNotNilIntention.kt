@@ -41,7 +41,7 @@ class AppendNotNilIntention : CheckNotNilIntention() {
             val prevVisibleLeaf = PsiTreeUtil.prevVisibleLeaf(element) ?: return false
             return isAvailable(project, editor, prevVisibleLeaf)
         }
-
+        replaceExpr = null
         getHandleElement(element)?.let {
             if (it is LuaIndexExpr) {
                 handleElement = it.prefixExpr
@@ -73,7 +73,6 @@ class AppendNotNilIntention : CheckNotNilIntention() {
                     }
                 }
             }
-
         }
         return replaceExpr != null
     }

@@ -129,9 +129,12 @@ open class ClassMemberCompletionProvider : LuaCompletionProvider() {
                             }
                         }
                         matchKeySet.forEach {
-                            val item = LookupElementBuilder.create(it).withIcon(LuaIcons.UNKNOWN_METHOD).withItemTextItalic(true).withTailText(" ?").withItemTextForeground(Color.GRAY)
+                            val item = LookupElementBuilder.create(it).withIcon(LuaIcons.UNKNOWN_METHOD)
+                                .withItemTextItalic(true)
+                                .withItemTextForeground(Color.GRAY)
                                 .withInsertHandler(OverrideInsertHandler())
-//                                .withTypeText("$prefix?", true)
+//                                .withTailText(typeName)
+                                .withTypeText(typeName, true)
                             completionResultSet.addElement(
                                 PrioritizedLookupElement.withPriority(item, -0.5)
                             )
@@ -143,7 +146,7 @@ open class ClassMemberCompletionProvider : LuaCompletionProvider() {
     }
 
     private fun complete(
-        isColon: Boolean, project: Project, contextTy: ITy, prefixType: ITy, completionResultSet: CompletionResultSet, prefixMatcher: PrefixMatcher, handlerProcessor: HandlerProcessor?
+        isColon: Boolean, project: Project, contextTy: ITy, prefixType: ITy, completionResultSet: CompletionResultSet, prefixMatcher: PrefixMatcher, handlerProcessor: HandlerProcessor?,
     ) {
         val mode = if (isColon) MemberCompletionMode.Colon else MemberCompletionMode.Dot
         prefixType.eachTopClass(Processor { luaType ->
@@ -159,7 +162,7 @@ open class ClassMemberCompletionProvider : LuaCompletionProvider() {
         completionMode: MemberCompletionMode,
         completionResultSet: CompletionResultSet,
         prefixMatcher: PrefixMatcher,
-        handlerProcessor: HandlerProcessor?
+        handlerProcessor: HandlerProcessor?,
     ) {
         val context = SearchContext.get(project)
         luaType.lazyInit(context)
@@ -182,7 +185,7 @@ open class ClassMemberCompletionProvider : LuaCompletionProvider() {
         callType: ITyClass,
         completionMode: MemberCompletionMode,
         project: Project,
-        handlerProcessor: HandlerProcessor?
+        handlerProcessor: HandlerProcessor?,
     ) {
         var type = member.guessType(SearchContext.get(project))
         val bold = thisType == callType
@@ -217,7 +220,7 @@ open class ClassMemberCompletionProvider : LuaCompletionProvider() {
     }
 
     protected fun addField(
-        completionResultSet: CompletionResultSet, bold: Boolean, clazzName: String, field: LuaClassField, ty: ITy?, handlerProcessor: HandlerProcessor?
+        completionResultSet: CompletionResultSet, bold: Boolean, clazzName: String, field: LuaClassField, ty: ITy?, handlerProcessor: HandlerProcessor?,
     ) {
         val name = field.name
         if (name != null) {
@@ -237,7 +240,7 @@ open class ClassMemberCompletionProvider : LuaCompletionProvider() {
         fnTy: ITyFunction,
         thisType: ITyClass,
         callType: ITyClass,
-        handlerProcessor: HandlerProcessor?
+        handlerProcessor: HandlerProcessor?,
     ) {
         val name = classMember.name
         if (name != null) {
