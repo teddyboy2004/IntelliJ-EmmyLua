@@ -24,21 +24,25 @@ import com.tang.intellij.lua.psi.LuaFileUtil
 import java.util.regex.Pattern;
 
 public class LuaAnalyzeStacktraceFilter() : Filter {
-    val pattern = Pattern.compile("\\s*\\.(\\\\.*?\\.lua):(\\d+):")
+    val pattern1 = Pattern.compile("\\s*\\.(\\\\.*?\\.lua):(\\d+):") // .\xxx.lua:xxx:
+    val pattern2 = Pattern.compile("\\s*(\\w+/.*?\\.lua):(\\d+):") // xxx/xxx.lua:xxx:
+    var patterns = arrayOf(pattern1, pattern2)
 
     override fun applyFilter(line: String, entireLength: Int): Filter.Result? {
         val project = LuaStartupActivity.curProject
-        val matcher = pattern.matcher(line)
-        if (matcher.find()) {
-            val fileName = matcher.group(1)
-            val lineNumber = Integer.parseInt(matcher.group(2))
-            val file = LuaFileUtil.findFile(project, fileName)
-            if (file != null) {
-                val hyperlink = OpenFileHyperlinkInfo(project, file, lineNumber - 1)
-                val textStartOffset = entireLength - line.length
-                val startPos = matcher.start(1)
-                val endPos = matcher.end(2) + 1
-                return Filter.Result(startPos + textStartOffset, endPos + textStartOffset, hyperlink)
+        patterns.forEach {
+            val matcher = it.matcher(line)
+            if (matcher.find()) {
+                val fileName = matcher.group(1)
+                val lineNumber = Integer.parseInt(matcher.group(2))
+                val file = LuaFileUtil.findFile(project, fileName)
+                if (file != null) {
+                    val hyperlink = OpenFileHyperlinkInfo(project, file, lineNumber - 1)
+                    val textStartOffset = entireLength - line.length
+                    val startPos = matcher.start(1)
+                    val endPos = matcher.end(2) + 1
+                    return Filter.Result(startPos + textStartOffset, endPos + textStartOffset, hyperlink)
+                }
             }
         }
         return null
