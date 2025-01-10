@@ -17,15 +17,19 @@
 package com.tang.intellij.lua.editor.structure
 
 import com.intellij.ide.util.treeView.smartTree.TreeElement
+import com.intellij.openapi.fileChooser.FileElement
 import com.intellij.psi.PsiComment
+import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiNamedElement
 import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.webSymbols.webTypes.WebTypesSymbol
 import com.jetbrains.rd.util.remove
 import com.tang.intellij.lua.Constants
 import com.tang.intellij.lua.comment.psi.LuaDocTagClass
 import com.tang.intellij.lua.comment.psi.LuaDocTagField
 import com.tang.intellij.lua.comment.psi.LuaDocVisitor
 import com.tang.intellij.lua.lang.LuaIcons
+import com.tang.intellij.lua.project.LuaSettings
 import com.tang.intellij.lua.psi.*
 import com.tang.intellij.lua.search.SearchContext
 import java.util.*
@@ -127,12 +131,29 @@ class LuaStructureVisitor : LuaVisitor() {
                 return
             }
 
+            if (expr is LuaCallExpr && LuaSettings.isRequireLikeFunctionName(expr.expr.text)) {
+                return
+            }
+
             var owner: LuaTreeElement? = null
             if (nameExpr is LuaIndexExpr) {
                 val namePartExpr = nameExpr.prefixExpr
+                if (namePartExpr is LuaIndexExpr) {
+                    val nameParts = getNamePartsFromCompoundName(namePartExpr)
+                    nameParts.forEach { name ->
+                        if (name is LuaNameExpr && name.text != Constants.WORD_SELF) {
+                            resolve(name, SearchContext.get(o.project))?.let {
+                                if (it != name && it.parent !is PsiFile) {
+                                    return
+                                }
+                            }
+                        }
+                    }
+                }
                 if (namePartExpr.text != Constants.WORD_SELF) {
                     owner = handleCompoundName(namePartExpr) ?: return
                 }
+
             }
 
             val child = if (expr is LuaClosureExpr) {
@@ -150,11 +171,20 @@ class LuaStructureVisitor : LuaVisitor() {
 
                         val names = o.varExprList.exprList
                         val exprs = o.valueExprList?.exprList
-
+                        var isLocal = true
                         for (idx in 0 until names.size) {
                             val declaration = declarations?.getOrNull(idx)
                             val valueExpr = exprs?.getOrNull(idx)
                             val nameExpr2 = names[idx]
+
+                            if (nameExpr2 is LuaNameExpr) {
+                                resolve(nameExpr2, SearchContext.get(o.project))?.let {
+                                    if (it != nameExpr2 && it.parent !is PsiFile) {
+                                        return
+                                    }
+                                }
+                                isLocal = false
+                            }
 
                             var exprOwner: LuaTreeElement? = null
                             if (declaration is LuaClassElement) {
@@ -171,8 +201,11 @@ class LuaStructureVisitor : LuaVisitor() {
                                 handleTableExpr(valueExpr, exprOwner)
                             }
                         }
-
-                        LuaGlobalVarElement(o, name)
+                        if (isLocal) {
+                            LuaLocalVarElement(o, name)
+                        } else {
+                            LuaGlobalVarElement(o, name)
+                        }
                     }
                 }
             }
@@ -270,15 +303,22 @@ class LuaStructureVisitor : LuaVisitor() {
             val valueExpr = exprs?.getOrNull(idx)
             val nameDef = names[idx]
 
+            if (valueExpr is LuaCallExpr && LuaSettings.isRequireLikeFunctionName(valueExpr.expr.text)) {
+                return
+            }
+
             val exprOwner: LuaTreeElement
             if (declaration is LuaClassElement) {
                 exprOwner = declaration
 
-                addChild(declaration, nameDef.name)
+                if (o.parent is PsiFile) {
+                    addChild(declaration, nameDef.name)
+                }
             } else {
                 exprOwner = LuaLocalVarElement(nameDef)
-
-                addChild(exprOwner)
+                if (o.parent is PsiFile) {
+                    addChild(exprOwner)
+                }
             }
 
             if (valueExpr is LuaTableExpr) {
@@ -302,7 +342,8 @@ class LuaStructureVisitor : LuaVisitor() {
 
         var namePart = namePartExpr
         while (true) {
-            result.add(namePart)
+            if (namePart.text != Constants.WORD_SELF)
+                result.add(namePart)
             namePart = namePart.firstChild as? LuaExpr ?: break
         }
         result.reverse()
@@ -326,7 +367,12 @@ class LuaStructureVisitor : LuaVisitor() {
 
                 if (child == null) {
                     child = if (parent == null) {
-                        LuaGlobalVarElement(namePart)
+                        if (namePart is LuaIndexExpr && namePart.exprList.firstOrNull()?.name == Constants.WORD_SELF) {
+                            LuaLocalVarElement(namePart)
+                        }
+                        else{
+                            LuaGlobalVarElement(namePart)
+                        }
                     } else {
                         LuaLocalVarElement(namePart)
                     }
@@ -389,6 +435,8 @@ class LuaStructureVisitor : LuaVisitor() {
                     val treeElement = it as LuaTreeElement
                     treeElement.name += " "
                     list.add(treeElement)
+                } else {
+                    list.add(it as LuaTreeElement)
                 }
             }
             element.clearChildren()
@@ -467,6 +515,6 @@ class LuaStructureVisitor : LuaVisitor() {
     }
 
     fun compressChildren() {
-//        current?.children?.values?.forEach { element -> compressChild(element) }
+        current?.children?.values?.forEach { element -> compressChild(element) }
     }
 }

@@ -17,6 +17,7 @@
 package com.tang.intellij.lua.documentation
 
 import com.intellij.codeInsight.documentation.DocumentationManagerUtil
+import com.intellij.webSymbols.utils.HtmlMarkdownUtils
 import org.intellij.markdown.IElementType
 import org.intellij.markdown.MarkdownElementTypes
 import org.intellij.markdown.MarkdownTokenTypes

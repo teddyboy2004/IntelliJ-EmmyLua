@@ -56,8 +56,8 @@ val buildDataList = listOf(
         ideaSDKShortVersion = "231",
         // 223.7571.123-EAP-SNAPSHOT
         // LATEST-EAP-SNAPSHOT
-        ideaSDKVersion = "232.10319.17",
-        sinceBuild = "231",
+        ideaSDKVersion = "233.15619.7",
+        sinceBuild = "221",
         untilBuild = "242.*",
         bunch = "212",
         targetCompatibilityLevel = JavaVersion.VERSION_17,
@@ -137,7 +137,7 @@ task("unzipEmmyDebugger", type = Copy::class) {
 }
 
 task("installEmmyDebugger", type = Copy::class) {
-    dependsOn("unzipEmmyDebugger")
+//    dependsOn("unzipEmmyDebugger")
     from("temp/windows/x64/") {
         include("emmy_core.dll")
         into("debugger/emmy/windows/x64")

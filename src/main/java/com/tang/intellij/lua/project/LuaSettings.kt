@@ -523,8 +523,8 @@ class LuaSettings : PersistentStateComponent<LuaSettings> {
             val context = SearchContext.get(project)
             getCustomParam(callExpr)?.let { config ->
                 val guessType = callExpr.guessType(context)
-                TyUnion.each(guessType) { ty ->
-                    var find = false
+                var find = false
+                var handleFun = fun(ty: ITy) {
                     val fieldName = config.ConvertFunctionName
                     if (ty is TyClass) {
                         LuaClassMemberIndex.process(ty.className, fieldName, context, {
@@ -544,8 +544,9 @@ class LuaSettings : PersistentStateComponent<LuaSettings> {
                             !find
                         }
                     }
-                    !find
+                    return
                 }
+                TyUnion.each(guessType, handleFun)
             }
         }
 

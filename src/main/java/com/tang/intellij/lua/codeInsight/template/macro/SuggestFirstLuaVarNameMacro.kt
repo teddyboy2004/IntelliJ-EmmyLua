@@ -150,7 +150,7 @@ class SuggestFirstLuaVarNameMacro : Macro() {
 //                    return set.elementAt(0)
 //                }
                 val type = element.guessType(context)
-                name = getElementSuggestNameByType(type, context)
+                name = getElementSuggestNameByType(type, context, false)
                 if (name != null && name.length > 3 && !LuaNameSuggestionProvider.isKeyword(name)) {
                     return name
                 }
@@ -227,18 +227,31 @@ class SuggestFirstLuaVarNameMacro : Macro() {
         }
 
         // 根据类型判断文件名
-        fun getElementSuggestNameByType(ity: ITy?, context: SearchContext): String? {
+        fun getElementSuggestNameByType(ity: ITy?, context: SearchContext, checkPrimitive:Boolean): String? {
             var type = ity
+            if (type is TyTuple) {
+                val sb = StringBuilder()
+                type.list.forEachIndexed() { i, it ->
+                    if (i > 0)
+                        sb.append(", ")
+                    sb.append(getElementSuggestNameByType(it, context, true))
+                }
+                return sb.toString()
+            }
+            if (type is TyPrimitive &&  checkPrimitive) {
+                return type.displayName
+            }
+
             if (type is TyUnion) {
                 type.getChildTypes().forEach() {
-                    val name = getElementSuggestNameByType(it, context)
+                    val name = getElementSuggestNameByType(it, context, false)
                     if (name != null) {
                         return name
                     }
                 }
             }
             if (type is TyArray) {
-                val name = getElementSuggestNameByType(type.base, context)
+                val name = getElementSuggestNameByType(type.base, context, false)
                 if (name != null)
                     return name + "Arr"
             }
@@ -253,6 +266,10 @@ class SuggestFirstLuaVarNameMacro : Macro() {
                     }
                 }
             }
+            if (type is TyDocTable && type.kind == TyKind.Class){
+                return type.displayName
+            }
+
             if (type is TyTable) {
                 val psi = type.table
                 val e = PsiTreeUtil.getParentOfType(psi, PsiNameIdentifierOwner::class.java)

@@ -44,7 +44,7 @@ class CreateFunctionDocIntention : FunctionIntention() {
         if (funcBody != null) {
             val templateManager = TemplateManager.getInstance(bodyOwner.project)
             val template = templateManager.createTemplate("", "")
-            template.addTextSegment("---" + bodyOwner.name!!)
+            template.addTextSegment("--- " + bodyOwner.name!! +" ")
 
             // params
             val parDefList = funcBody.paramNameDefList

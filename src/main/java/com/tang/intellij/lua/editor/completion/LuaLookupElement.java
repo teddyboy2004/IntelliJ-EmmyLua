@@ -125,7 +125,7 @@ public class LuaLookupElement extends LookupElement implements Comparable<Lookup
     }
 
     protected void setTypeText(String value) {
-        myTypeText = value;
+        myTypeText = value.replace("&lt;", "<").replace("&gt;",">");
     }
 
     public void setIcon(Icon icon) {

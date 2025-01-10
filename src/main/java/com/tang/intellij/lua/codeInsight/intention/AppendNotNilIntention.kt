@@ -43,8 +43,8 @@ class AppendNotNilIntention : CheckNotNilIntention() {
         }
         replaceExpr = null
         getHandleElement(element)?.let {
-            if (it is LuaIndexExpr) {
-                handleElement = it.prefixExpr
+            if (it is LuaExpr) {
+                handleElement = it
                 val luaStatement = ExpressionUtil.getLuaStatement(it)
                 val handleRange = handleElement!!.textRange
                 when (luaStatement) {
@@ -65,6 +65,14 @@ class AppendNotNilIntention : CheckNotNilIntention() {
                     }
 
                     is LuaLocalDef -> {
+                        luaStatement.exprList?.exprList?.forEach {
+                            if (it.textRange.contains(handleRange)) {
+                                replaceExpr = it
+                            }
+                        }
+                    }
+
+                    is LuaReturnStat -> {
                         luaStatement.exprList?.exprList?.forEach {
                             if (it.textRange.contains(handleRange)) {
                                 replaceExpr = it

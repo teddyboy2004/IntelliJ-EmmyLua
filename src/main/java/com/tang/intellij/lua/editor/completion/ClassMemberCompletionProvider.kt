@@ -31,6 +31,7 @@ import com.tang.intellij.lua.lang.LuaIcons
 import com.tang.intellij.lua.project.LuaSettings
 import com.tang.intellij.lua.psi.*
 import com.tang.intellij.lua.search.SearchContext
+import com.tang.intellij.lua.stubs.index.LuaClassMemberIndex
 import com.tang.intellij.lua.stubs.index.LuaUnknownClassMemberIndex
 import com.tang.intellij.lua.ty.*
 import com.vladsch.flexmark.util.html.ui.Color
@@ -166,15 +167,24 @@ open class ClassMemberCompletionProvider : LuaCompletionProvider() {
     ) {
         val context = SearchContext.get(project)
         luaType.lazyInit(context)
-        luaType.processMembers(context) { curType, member ->
+        var memberCount = 0
+        var handleFunc = fun(curType: ITyClass, member: LuaClassMember) {
             ProgressManager.checkCanceled()
             member.name?.let {
                 if (prefixMatcher.prefixMatches(it) && curType.isVisibleInScope(project, contextTy, member.visibility)) {
                     addMember(
                         completionResultSet, member, curType, luaType, completionMode, project, handlerProcessor
                     )
+                    memberCount++
                 }
             }
+        }
+        luaType.processMembers(context, handleFunc)
+        // 全局类型补充时会有可能不提示，替换一下
+        if (luaType is TySerializedClass && luaType.isGlobal&& luaType.className.startsWith("$") && memberCount == 0)
+        {
+            val newType = TySerializedClass(luaType.varName, luaType.varName, luaType.superClassName, luaType.aliasName, luaType.flags)
+            newType.processMembers(context, handleFunc)
         }
     }
 
@@ -246,7 +256,6 @@ open class ClassMemberCompletionProvider : LuaCompletionProvider() {
         if (name != null) {
             this.session?.addWord(name)
             fnTy.process(Processor {
-
                 val firstParam = it.getFirstParam(thisType, isColonStyle)
                 if (isColonStyle) {
                     if (firstParam == null) return@Processor true

@@ -56,6 +56,17 @@ public class LuaAssignStatImpl extends LuaStatMixin<LuaPlaceholderStub> implemen
   }
 
   @Override
+  public void navigate(boolean requestFocus) {
+    var childOfType = PsiTreeUtil.findChildOfType(this, LuaIndexExpr.class);
+    if (childOfType != null) {
+      childOfType.navigate(requestFocus);
+      return;
+
+    }
+    super.navigate(requestFocus);
+  }
+
+  @Override
   @Nullable
   public LuaExprList getValueExprList() {
     List<LuaExprList> p1 = getExprListList();

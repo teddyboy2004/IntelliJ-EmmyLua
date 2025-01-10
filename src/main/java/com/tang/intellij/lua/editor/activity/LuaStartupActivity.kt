@@ -43,6 +43,7 @@ class LuaStartupActivity: StartupActivity {
                 }
             }
         }
+        curProject = project
         val handler = LuaFileEditorManager(project)
         project.messageBus.connect().subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, handler)
         FileEditorManager.getInstance(project).openFiles.getOrNull(0)?.let {
@@ -66,6 +67,10 @@ class LuaStartupActivity: StartupActivity {
 
         // Register your custom action
         actionManager.registerAction(actionId, LuaSymbolSearchEverywhereContributor.LuaSymbolSearchEverywhereAction())
+    }
+
+    companion object {
+        lateinit var curProject: Project
     }
 }
 

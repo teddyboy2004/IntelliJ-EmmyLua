@@ -17,8 +17,7 @@
 package com.tang.intellij.lua.codeInsight;
 
 import com.intellij.codeInsight.daemon.GutterIconNavigationHandler;
-import com.intellij.codeInsight.daemon.impl.PsiElementListNavigator;
-import com.intellij.ide.util.DefaultPsiElementCellRenderer;
+import com.intellij.codeInsight.navigation.PsiTargetNavigator;
 import com.intellij.psi.NavigatablePsiElement;
 import com.intellij.psi.PsiElement;
 import com.intellij.util.Query;
@@ -41,11 +40,13 @@ public abstract class LuaLineMarkerNavigator<T extends PsiElement, S extends Psi
             search.forEach(t1 -> {
                 navElements.add((NavigatablePsiElement) t1);
             });
-            PsiElementListNavigator.openTargets(mouseEvent,
-                    navElements.toArray(new NavigatablePsiElement[0]),
-                    getTitle(t),
-                    null,
-                    new DefaultPsiElementCellRenderer());
+
+            new PsiTargetNavigator(navElements).navigate(mouseEvent,getTitle(t), t.getProject());
+//            PsiElementListNavigator.openTargets(mouseEvent,
+//                    navElements.toArray(new NavigatablePsiElement[0]),
+//                    getTitle(t),
+//                    null,
+//                    new DefaultPsiElementCellRenderer());
         }
     }
 

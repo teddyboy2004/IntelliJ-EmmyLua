@@ -133,7 +133,7 @@ open class CheckNotNilIntention : PsiElementBaseIntentionAction() {
         val replaceRunnable = Runnable {
             var marker: RangeMarker? = null
             marker = editor.document.createRangeMarker(luaStatement.textRange)
-            val element = handleReplace(project, text, luaStatement)
+            val element = handleReplace(project, text.replace(":", "."), luaStatement)
 
             val documentManager = PsiDocumentManager.getInstance(project)
             documentManager.doPostponedOperationsAndUnblockDocument(editor.document)

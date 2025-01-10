@@ -187,7 +187,7 @@ class LuaExtraInlayHintsProvider : InlayHintsProvider<LuaExtraInlayHintsProvider
                     val preSigSize = sig.params.size
                     extraSig.processArgs(memberType, colonStyle) { index, param ->
                         val extraIndex = index + preSigSize - paramOffset
-                        if (extraIndex >= 0) {
+                        if (extraIndex >= 0 && index >= paramOffset) {
                             exprList.getOrNull(extraIndex)?.also {
                                 var offset = 0
                                 if (findMember is LuaClassMethodDef) {

@@ -31,6 +31,7 @@ import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.nio.ByteBuffer
+import java.nio.channels.AsynchronousSocketChannel
 import java.nio.channels.ServerSocketChannel
 import java.nio.channels.SocketChannel
 import java.util.concurrent.LinkedBlockingQueue
@@ -158,15 +159,19 @@ class SocketClientTransporter(val host: String, val port: Int) : SocketChannelTr
 
     override fun start() {
         logger?.println("Try connect $host:$port ...", LogConsoleType.NORMAL, ConsoleViewContentType.SYSTEM_OUTPUT)
-        val server = SocketChannel.open()
-        val address = InetAddress.getByName(host)
         var connected = false
-        if (server.connect(InetSocketAddress(address,port))) {
-            this.server = server
-            this.socket = server
-            run()
-            connected = true
+        val address = InetAddress.getByName(host)
+        try {
+            val server = SocketChannel.open()
+            if (server.connect(InetSocketAddress(address, port))) {
+                this.server = server
+                this.socket = server
+                run()
+                connected = true
+            }
+        } catch (e: Exception) {
         }
+
         onConnect(connected)
     }
 

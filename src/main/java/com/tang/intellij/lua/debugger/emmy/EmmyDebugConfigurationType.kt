@@ -86,7 +86,7 @@ class EmmyDebuggerConfigurationFactory(val type: EmmyDebugConfigurationType) : L
 class EmmyDebugConfiguration(project: Project, factory: EmmyDebuggerConfigurationFactory) : LuaRunConfiguration(project, factory), RunConfigurationWithSuppressedDefaultRunAction {
     var type = EmmyDebugTransportType.TCP_CLIENT
 
-    var host = "localhost"
+    var host = "127.0.0.1"
     var port = 9966
     var winArch = EmmyWinArch.X64
     var pipeName = "emmy"

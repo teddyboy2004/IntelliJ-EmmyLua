@@ -19,7 +19,6 @@ import com.intellij.psi.PsiFile
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.psi.util.elementType
 import com.intellij.psi.util.parents
-import com.intellij.refactoring.suggested.startOffset
 import com.intellij.util.Alarm
 import com.tang.intellij.lua.editor.ui.StickyLinesPanel
 import com.tang.intellij.lua.project.LuaSettings
@@ -33,7 +32,7 @@ class StickyPanelManager(
     val project: Project,
     val editor: EditorImpl,
     val fem: FileEditorManager,
-    val textEditor: TextEditor
+    val textEditor: TextEditor,
 ) : VisibleAreaListener, Disposable, CaretListener {
     var properTextRange: ProperTextRange? = null
     val stickyPanel: StickyLinesPanel = StickyLinesPanel(editor)
@@ -61,11 +60,12 @@ class StickyPanelManager(
         if (editor.isDisposed) {
             return
         }
-        val visualPosition = editor.caretModel.currentCaret.visualPosition
-        val xy = editor.visualPositionToXY(visualPosition)
+        val caretPos = editor.caretModel.currentCaret.logicalPosition
+        val xy = editor.logicalPositionToXY(caretPos)
         val minY = activeVisualArea.y + stickyPanel.height
         if (xy.y < minY) {
-            editor.scrollingModel.scrollVertically(editor.scrollingModel.verticalScrollOffset - minY + xy.y)
+            val moveOffset: Int = (Math.ceil((minY - xy.y) * 1.0 / editor.lineHeight) * editor.lineHeight).toInt()
+            editor.scrollingModel.scrollVertically(editor.scrollingModel.verticalScrollOffset - moveOffset)
         }
     }
 
