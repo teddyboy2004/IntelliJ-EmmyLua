@@ -41,7 +41,7 @@ public class LuaMobDebuggerEvaluator extends LuaDebuggerEvaluator {
 
     @Override
     protected void eval(@NotNull String s, @NotNull XEvaluationCallback xEvaluationCallback, @Nullable XSourcePosition xSourcePosition) {
-        EvaluatorCommand evaluatorCommand = new EvaluatorCommand("return " + s, this.stackFrame.getStackLevel(), data -> {
+        EvaluatorCommand evaluatorCommand = new EvaluatorCommand("return " + s, 1, this.stackFrame.getStackLevel(), data -> {
             Globals standardGlobals = JsePlatform.standardGlobals();
             LuaValue code = standardGlobals.load(data);
             code = code.call();

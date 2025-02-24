@@ -28,15 +28,15 @@ open class LuaXValuePresentation(val sType: String, val sValue:String, val tkey 
         else renderer.renderValue(sValue, tkey)
     }
 
-    override fun getType() = sType
+    override fun getType() = null
 }
 
 class LuaXStringPresentation(sValue: String) : XStringValuePresentation(sValue) {
-    override fun getType() = "string"
+    override fun getType() = null
 }
 
 class LuaXNumberPresentation(sValue: String) : XNumericValuePresentation(sValue) {
-    override fun getType() = "number"
+    override fun getType() = null
 }
 
 class LuaXBoolPresentation(sValue: String) : LuaXValuePresentation("boolean", sValue, LuaHighlightingData.PRIMITIVE_TYPE)

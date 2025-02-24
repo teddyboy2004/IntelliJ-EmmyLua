@@ -25,14 +25,14 @@ import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.FileEditorManagerListener
 import com.intellij.openapi.fileEditor.TextEditor
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.startup.StartupActivity
+import com.intellij.openapi.startup.ProjectActivity
 import com.intellij.openapi.vfs.VirtualFile
 import com.tang.intellij.lua.editor.LuaSymbolSearchEverywhereContributor
 import com.tang.intellij.lua.editor.services.StickyPanelManager
 
 
-class LuaStartupActivity: StartupActivity {
-    override fun runActivity(project: Project) {
+class LuaStartupActivity: ProjectActivity {
+    override suspend fun execute(project: Project) {
         EditorFactory.getInstance().allEditors.forEach {
             if (it is EditorImpl) {
                 try {

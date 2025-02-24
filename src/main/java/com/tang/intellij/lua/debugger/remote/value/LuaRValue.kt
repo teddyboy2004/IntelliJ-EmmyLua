@@ -20,6 +20,7 @@ import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.TextEditor
 import com.intellij.psi.PsiManager
 import com.intellij.xdebugger.XDebugSession
+import com.intellij.xdebugger.frame.XCompositeNode
 import com.intellij.xdebugger.frame.XNamedValue
 import com.intellij.xdebugger.frame.XNavigatable
 import com.intellij.xdebugger.impl.XSourcePositionImpl
@@ -38,8 +39,14 @@ abstract class LuaRValue(name: String) : XNamedValue(name) {
 
     var parent: LuaRValue? = null
 
+    var key: LuaValue?= null
+
     override fun computeSourcePosition(xNavigable: XNavigatable) {
         computeSourcePosition(xNavigable, name, session)
+    }
+
+    override fun computeChildren(node: XCompositeNode) {
+        super.computeChildren(node)
     }
 
     companion object {

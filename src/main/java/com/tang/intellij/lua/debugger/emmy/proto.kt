@@ -72,7 +72,7 @@ open class Message(cmdName: MessageCMD) : IMessage {
     }
 }
 
-class InitMessage(val emmyHelper: String, val ext: Array<String>) : Message(MessageCMD.InitReq)
+class InitMessage(val emmyHelper: String, val ext: Array<String>, val skipFiles: Array<String>) : Message(MessageCMD.InitReq)
 
 enum class DebugAction {
     Break,

@@ -33,6 +33,7 @@ import com.tang.intellij.lua.lang.LuaLanguage
 import com.tang.intellij.lua.project.LuaCustomHandleType
 import com.tang.intellij.lua.project.LuaSettings
 import com.tang.intellij.lua.psi.*
+import com.tang.intellij.lua.psi.impl.LuaExprCodeFragmentImpl
 import com.tang.intellij.lua.refactoring.LuaRefactoringUtil
 
 /**
@@ -83,11 +84,16 @@ class LuaCompletionContributor : CompletionContributor() {
     }
 
     override fun fillCompletionVariants(parameters: CompletionParameters, result: CompletionResultSet) {
-        val session = CompletionSession(parameters, result)
-        parameters.editor.putUserData(CompletionSession.KEY, session)
-        super.fillCompletionVariants(parameters, result)
+        val file = parameters.originalFile
+        var p = parameters
+        if (file is LuaExprCodeFragmentImpl) {
+            p = file.createNewCompletionParameters(parameters)
+        }
+        val session = CompletionSession(p, result)
+        p.editor.putUserData(CompletionSession.KEY, session)
+        super.fillCompletionVariants(p, result)
         if (LuaSettings.instance.isShowWordsInFile && suggestWords && session.isSuggestWords && !result.isStopped) {
-            suggestWordsInFile(parameters)
+            suggestWordsInFile(p)
         }
     }
 

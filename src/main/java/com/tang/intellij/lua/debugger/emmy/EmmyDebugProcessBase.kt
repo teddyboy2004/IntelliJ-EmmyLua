@@ -28,6 +28,7 @@ import com.intellij.xdebugger.evaluation.XDebuggerEditorsProvider
 import com.intellij.xdebugger.frame.XSuspendContext
 import com.intellij.xdebugger.impl.XDebugSessionImpl
 import com.tang.intellij.lua.debugger.*
+import com.tang.intellij.lua.project.LuaSettings
 import com.tang.intellij.lua.psi.LuaFileManager
 import com.tang.intellij.lua.psi.LuaFileUtil
 import java.io.File
@@ -58,7 +59,11 @@ abstract class EmmyDebugProcessBase(session: XDebugSession) : LuaDebugProcess(se
         if (path != null) {
             val code = File(path).readText()
             val extList = LuaFileManager.extensions
-            transporter?.send(InitMessage(code, extList))
+            val skipFiles = mutableListOf<String>()
+            LuaSettings.instance.debugerSkipFrameWorkFiles.forEach {
+                skipFiles.add("@$it.lua")
+            }
+            transporter?.send(InitMessage(code, extList, skipFiles.toTypedArray()))
         }
         // send bps
         val breakpoints = XDebuggerManager.getInstance(session.project)

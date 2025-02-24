@@ -17,11 +17,23 @@
 package com.tang.intellij.lua.debugger.remote.value
 
 import com.intellij.icons.AllIcons
+import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.xdebugger.evaluation.XDebuggerEvaluator
 import com.intellij.xdebugger.frame.*
 import com.intellij.xdebugger.impl.XDebugSessionImpl
 import com.tang.intellij.lua.debugger.remote.LuaMobDebugProcess
+import com.tang.intellij.lua.debugger.remote.LuaMobStackFrame
+import com.tang.intellij.lua.debugger.remote.commands.EvaluatorCommand
+import org.luaj.vm2.LuaFunction
+import org.luaj.vm2.LuaNumber
+import org.luaj.vm2.LuaString
+import org.luaj.vm2.LuaTable
+import org.luaj.vm2.LuaThread
+import org.luaj.vm2.LuaUserdata
 import org.luaj.vm2.LuaValue
+import org.luaj.vm2.lib.jse.JsePlatform
+import java.awt.datatransfer.StringSelection
+import kotlin.io.encoding.Base64
 
 /**
  *
@@ -86,6 +98,7 @@ class LuaRTable(name: String) : LuaRValue(name) {
                     if (table != null)
                         for (key in table.keys()) {
                             val value = LuaRValue.create(key.toString(), table.get(key), "", session)
+                            value.key = key
                             value.parent = this@LuaRTable
                             list.add(value)
                         }
@@ -95,5 +108,61 @@ class LuaRTable(name: String) : LuaRValue(name) {
             }, null)
         } else
             node.addChildren(list!!, true)
+    }
+
+    fun convertToLuaString(sb: StringBuffer, name:String, luaValue: LuaValue) {
+        when (luaValue) {
+            is LuaTable ->{
+                sb.append(name)
+                sb.append(" = {")
+                luaValue.keys().forEach {
+                    val value = luaValue.get(it)
+                    val len = sb.length
+                    convertToLuaString(sb, it.toString(), value)
+                    if (sb.length != len)
+                    {
+                        sb.append(", ")
+                    }
+                }
+                sb.append("}")
+            }
+            is LuaFunction, is LuaUserdata, is LuaThread -> {
+                return
+            }
+            is LuaString -> {
+                sb.append(name)
+                sb.append(" = '")
+                sb.append(luaValue.toString())
+                sb.append("'")
+            }
+            else -> {
+                sb.append(name)
+                sb.append(" = ")
+                sb.append(luaValue.toString())
+            }
+        }
+    }
+
+    fun copyAsTableString(){
+        val process = session.debugProcess as LuaMobDebugProcess
+        val frame = session.currentStackFrame as LuaMobStackFrame
+        process.runCommand(EvaluatorCommand("return $evalExpr", 5, frame.stackLevel, object : EvaluatorCommand.Callback {
+            override fun onResult(data: String) {
+                val standardGlobals = JsePlatform.standardGlobals()
+                var code = standardGlobals.load(data)
+                code = code.call()
+
+                val code2Str: String? = code.get(1).toString()
+                val code2 = standardGlobals.load(String.format("local _=%s return _", code2Str))
+
+                val value = create(evalExpr, code2.call(), evalExpr, process.getSession()) as LuaRTable
+                val sb = StringBuffer()
+                sb.append("local ")
+                val table = value.data as LuaTable
+                convertToLuaString(sb, evalExpr, table)
+                CopyPasteManager.getInstance().setContents(StringSelection(sb.toString()))
+            }
+        }))
+
     }
 }

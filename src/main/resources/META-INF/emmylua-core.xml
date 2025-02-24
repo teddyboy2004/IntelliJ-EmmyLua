@@ -403,6 +403,9 @@
         <action class="com.tang.intellij.lua.actions.CopyAndFindFileReferencesAction" text="Find File References" id="lua.CopyAndFindFileReferencesAction">
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
         </action>
+        <action class="com.tang.intellij.lua.actions.XDebugCopyValueTable" text="Copy Value As Table" id="lua.XDebugCopyValueTable">
+            <add-to-group group-id="XDebugger.ValueGroup" anchor="after" relative-to-action="XDebugger.CopyValue"/>
+        </action>
     </actions>
 
     <extensionPoints>

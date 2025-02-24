@@ -35,9 +35,11 @@ class EmmyDebugStackFrame(val data: Stack, val process: EmmyDebugProcessBase) : 
     }
 
     init {
+        LuaXValue.isUpvalue = false
         data.localVariables.forEach {
             addValue(LuaXValue.create(it, this))
         }
+        LuaXValue.isUpvalue = true
         data.upvalueVariables.forEach {
             addValue(LuaXValue.create(it, this))
         }

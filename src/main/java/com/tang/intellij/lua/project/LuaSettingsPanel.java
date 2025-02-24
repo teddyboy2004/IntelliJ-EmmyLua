@@ -63,6 +63,10 @@ public class LuaSettingsPanel implements SearchableConfigurable{
     private JCheckBox enableSkipModuleNameCheckBox;
     private JTextField unknownTypeGuessRegexStr;
     private JCheckBox isOptimizeProcessClass;
+    private JCheckBox ignoreMetedataValue;
+    private JCheckBox ignoreFunctionValue;
+    private JCheckBox showMoreValueItem;
+    private JTextField skipFrameworkFiles;
 
     public LuaSettingsPanel() {
         this.settings = LuaSettings.Companion.getInstance();
@@ -82,12 +86,17 @@ public class LuaSettingsPanel implements SearchableConfigurable{
         requireFunctionNames.setText(settings.getRequireLikeFunctionNamesString());
         unknownTypeGuessRegexStr.setText(settings.getUnknownTypeGuessRegexStr());
         superFieldNames.setText(settings.getSuperFieldNamesString());
+        skipFrameworkFiles.setText(settings.getSkipFrameworkFilesString());
         tooLargerFileThreshold.setDocument(new IntegerDocument());
         tooLargerFileThreshold.setText(String.valueOf(settings.getTooLargerFileThreshold()));
 
 
         captureStd.setSelected(settings.getAttachDebugCaptureStd());
         captureOutputDebugString.setSelected(settings.getAttachDebugCaptureOutput());
+
+        ignoreFunctionValue.setSelected(settings.getDebuggerIgnoreFunction());
+        ignoreMetedataValue.setSelected(settings.getDebuggerIgnoreMetadata());
+        showMoreValueItem.setSelected(settings.getDebuggerShowMoreValue());
 
         SortedMap<String, Charset> charsetSortedMap = Charset.availableCharsets();
         ComboBoxModel<String> outputCharsetModel = new DefaultComboBoxModel<>(ArrayUtil.toStringArray(charsetSortedMap.keySet()));
@@ -103,6 +112,8 @@ public class LuaSettingsPanel implements SearchableConfigurable{
         Vector<Integer> stickyLineLevel = settings.getStickyLineLevel();
         stickyLineComboBox.setModel(new DefaultComboBoxModel<>(stickyLineLevel));
         stickyLineComboBox.setSelectedItem(settings.getStickyScrollMaxLevel());
+
+        skipFrameworkFiles.setText(settings.getSkipFrameworkFilesString());
     }
 
     @NotNull
@@ -129,6 +140,7 @@ public class LuaSettingsPanel implements SearchableConfigurable{
                 !StringUtil.equals(settings.getRequireLikeFunctionNamesString(), requireFunctionNames.getText()) ||
                 !StringUtil.equals(settings.getUnknownTypeGuessRegexStr(), unknownTypeGuessRegexStr.getText()) ||
                 !StringUtil.equals(settings.getSuperFieldNamesString(), superFieldNames.getText()) ||
+                !StringUtil.equals(settings.getSkipFrameworkFilesString(), skipFrameworkFiles.getText()) ||
                 settings.getTooLargerFileThreshold() != getTooLargerFileThreshold() ||
                 settings.isStrictDoc() != strictDoc.isSelected() ||
                 settings.isSmartCloseEnd() != smartCloseEnd.isSelected() ||
@@ -140,6 +152,9 @@ public class LuaSettingsPanel implements SearchableConfigurable{
                 settings.isSkipModuleName() != enableSkipModuleNameCheckBox.isSelected() ||
                 settings.isOptimizeClassProcess() != isOptimizeProcessClass.isSelected() ||
                 settings.getAttachDebugCaptureOutput() != captureOutputDebugString.isSelected() ||
+                settings.getDebuggerIgnoreFunction() != ignoreFunctionValue.isSelected() ||
+                settings.getDebuggerIgnoreMetadata() != ignoreMetedataValue.isSelected() ||
+                settings.getDebuggerShowMoreValue() != showMoreValueItem.isSelected() ||
                 settings.getAttachDebugCaptureStd() != captureStd.isSelected() ||
                 settings.getAttachDebugDefaultCharsetName() != defaultCharset.getSelectedItem() ||
                 settings.getLanguageLevel() != languageLevel.getSelectedItem() ||
@@ -158,6 +173,7 @@ public class LuaSettingsPanel implements SearchableConfigurable{
         settings.setUnknownTypeGuessRegexStr(unknownTypeGuessRegexStr.getText());
         unknownTypeGuessRegexStr.setText(settings.getUnknownTypeGuessRegexStr());
         settings.setSuperFieldNamesString(superFieldNames.getText());
+        settings.setSkipFrameworkFilesString(skipFrameworkFiles.getText());
         superFieldNames.setText(settings.getSuperFieldNamesString());
         settings.setTooLargerFileThreshold(getTooLargerFileThreshold());
         settings.setStrictDoc(strictDoc.isSelected());
@@ -173,6 +189,9 @@ public class LuaSettingsPanel implements SearchableConfigurable{
         settings.setSkipModuleName(enableSkipModuleNameCheckBox.isSelected());
         settings.setOptimizeClassProcess(isOptimizeProcessClass.isSelected());
         settings.setAttachDebugCaptureOutput(captureOutputDebugString.isSelected());
+        settings.setDebuggerIgnoreMetadata(ignoreMetedataValue.isSelected());
+        settings.setDebuggerShowMoreValue(showMoreValueItem.isSelected());
+        settings.setDebuggerIgnoreFunction(ignoreFunctionValue.isSelected());
         settings.setAttachDebugCaptureStd(captureStd.isSelected());
         settings.setAttachDebugDefaultCharsetName((String) Objects.requireNonNull(defaultCharset.getSelectedItem()));
         settings.setStickyScrollMaxLevel((Integer) stickyLineComboBox.getSelectedItem());

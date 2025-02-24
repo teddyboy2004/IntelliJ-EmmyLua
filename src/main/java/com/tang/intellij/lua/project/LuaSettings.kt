@@ -32,7 +32,6 @@ import com.tang.intellij.lua.stubs.index.LuaClassMemberIndex
 import com.tang.intellij.lua.ty.*
 import java.nio.charset.Charset
 import java.util.*
-import javax.print.DocFlavor.STRING
 
 
 // 返回类型
@@ -346,6 +345,14 @@ class LuaSettings : PersistentStateComponent<LuaSettings> {
 
     var attachDebugCaptureOutput = true
 
+    var debuggerIgnoreMetadata = true
+
+    var debuggerIgnoreFunction = false
+
+    var debuggerShowMoreValue = false
+
+    var debugerSkipFrameWorkFiles = arrayOf("class", "common/Promise")
+
     /**
      * Lua language level
      */
@@ -396,6 +403,14 @@ class LuaSettings : PersistentStateComponent<LuaSettings> {
         }
         set(value) {
             requireLikeFunctionNames = value.split(";").map { it.trim() }.toTypedArray()
+        }
+
+    var skipFrameworkFilesString: String
+        get() {
+            return debugerSkipFrameWorkFiles.joinToString(";")
+        }
+        set(value) {
+            debugerSkipFrameWorkFiles = value.split(";").map { it.trim() }.toTypedArray()
         }
 
     companion object {

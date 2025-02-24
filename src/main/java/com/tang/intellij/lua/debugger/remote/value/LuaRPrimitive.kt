@@ -23,6 +23,7 @@ import com.tang.intellij.lua.debugger.LuaXNumberPresentation
 import com.tang.intellij.lua.debugger.LuaXStringPresentation
 import com.tang.intellij.lua.debugger.LuaXValuePresentation
 import com.tang.intellij.lua.highlighting.LuaHighlightingData
+import com.tang.intellij.lua.lang.LuaIcons
 import org.luaj.vm2.*
 
 /**
@@ -54,10 +55,14 @@ class LuaRPrimitive(name: String) : LuaRValue(name) {
     }
 
     override fun computePresentation(xValueNode: XValueNode, xValuePlace: XValuePlace) {
+        var icon = LuaIcons.LOCAL_VAR
+        if (key is LuaNumber) {
+            icon = LuaIcons.LOCAL_NUM_VAR
+        }
         if (valuePresentation == null) {
-            xValueNode.setPresentation(null, type, data, false)
+            xValueNode.setPresentation(icon, type, data, false)
         } else {
-            xValueNode.setPresentation(null, valuePresentation!!, false)
+            xValueNode.setPresentation(icon, valuePresentation!!, false)
         }
     }
 }

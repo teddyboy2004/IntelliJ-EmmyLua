@@ -18,10 +18,13 @@ package com.tang.intellij.lua.lang;
 
 import com.intellij.icons.AllIcons;
 import com.intellij.openapi.util.IconLoader;
+import com.intellij.ui.JBColor;
 import com.intellij.ui.LayeredIcon;
 import com.intellij.ui.RowIcon;
+import com.intellij.ui.TextIcon;
 
 import javax.swing.*;
+import java.awt.*;
 
 /**
  * Created by tangzx on 2015/11/15.
@@ -50,6 +53,8 @@ public class LuaIcons {
 
     public static final Icon LOCAL_VAR = AllIcons.Nodes.Variable;
     public static final Icon LOCAL_FUNCTION = AllIcons.Nodes.Function;
+    public static final Icon LOCAL_NUM_VAR = LayeredIcon.create(AllIcons.Nodes.Variable, getIcon("/icons/num.svg"));
+    public static final Icon LOCAL_NUM_TABLE = LayeredIcon.create(AllIcons.Json.Object, getIcon("/icons/num.svg"));
 
     public static final Icon PARAMETER = AllIcons.Nodes.Parameter;
     public static final Icon WORD = AllIcons.Actions.Edit;
@@ -79,6 +84,14 @@ public class LuaIcons {
         public static final Icon StackFrame = getIcon("/icons/frame.svg");
         public static class Actions {
             public static final Icon PROFILER = AllIcons.Debugger.Db_primitive;
+        }
+        public static class ValueType {
+            public static final Icon Table = getIcon("/icons/debuggerTable.svg");
+            public static final Icon String = getIcon("/icons/debuggerString.svg");
+            public static final Icon Bool = getIcon("/icons/debuggerBool.svg");
+            public static final Icon Number = getIcon("/icons/debuggerNum.svg");
+            public static final Icon Any = getIcon("/icons/debuggerAny.svg");
+            public static final Icon Func = getIcon("/icons/debuggerFunc.svg");
         }
     }
 }
