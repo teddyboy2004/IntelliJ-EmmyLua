@@ -29,8 +29,10 @@ import com.tang.intellij.lua.psi.impl.LuaExprCodeFragmentImpl
  * Created by TangZX on 2016/12/30.
  */
 class LuaDebuggerEditorsProvider : XDebuggerEditorsProviderBase() {
+    var inlineWatchGetTime: Long = 0
     override fun createExpressionCodeFragment(project: Project, text: String, context: PsiElement?, isPhysical: Boolean): PsiFile {
-        val fragment = LuaExprCodeFragmentImpl(project,"fragment.lua", text, isPhysical)
+        val fragment = LuaExprCodeFragmentImpl(project, "fragment.lua", text, isPhysical)
+        fragment.isInlineWatch = (System.currentTimeMillis() - inlineWatchGetTime < 500)
         fragment.context = context
         return fragment
     }

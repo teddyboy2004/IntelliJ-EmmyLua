@@ -19,6 +19,7 @@ import com.intellij.psi.PsiFile
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.psi.util.elementType
 import com.intellij.psi.util.parents
+import com.intellij.refactoring.suggested.startOffset
 import com.intellij.util.Alarm
 import com.tang.intellij.lua.editor.ui.StickyLinesPanel
 import com.tang.intellij.lua.project.LuaSettings
@@ -195,13 +196,14 @@ class StickyPanelManager(
         var parentEndOffset = element.textRange.endOffset
         val firstChildOffset = when {
             element is LuaIfStat -> {
-//                val list = element.children.filter(fun(it: PsiElement): Boolean {
-//                    if (it !is LuaBlock) {
-//                        return false
-//                    }
-//                    val e = getIfBlockStartElement(it) ?: return false
-//                    return editor.offsetToVisualLine(e.startOffset) <= srcLine
-//                }).toMutableList()
+                val list = element.children.filter(fun(it: PsiElement): Boolean {
+                    if (it !is LuaBlock) {
+                        return false
+                    }
+                    val e = getIfBlockStartElement(it) ?: return false
+                    return editor.offsetToVisualLine(e.startOffset) <= srcLine
+                }).toMutableList()
+                list.last().textRange.startOffset
 //                val l = list.map { getIfBlockStartElement(it as LuaBlock) }.toMutableList()
 //                // 只显示最后一个elseif
 //                if (l.count() > 2) {  // if elseif else
@@ -212,8 +214,7 @@ class StickyPanelManager(
 //                    }
 //                }
 //                l.forEach { addStickyLine(it!!, document, preLine, srcLine) }
-//                return
-                element.firstChild.textRange.startOffset
+//                element.firstChild.textRange.startOffset
             }
 
             element.elementType == LuaTypes.IF || element.elementType == LuaTypes.ELSEIF || element.elementType == LuaTypes.ELSE -> {

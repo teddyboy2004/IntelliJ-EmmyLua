@@ -19,6 +19,8 @@ package com.tang.intellij.lua.psi.impl
 import com.intellij.codeInsight.completion.CompletionParameters
 import com.intellij.codeInsight.completion.CompletionUtilCore
 import com.intellij.codeInsight.lookup.LookupElement
+import com.intellij.lang.documentation.ide.impl.DocumentationManager
+import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.Project
 import com.intellij.psi.FileViewProvider
 import com.intellij.psi.PsiElement
@@ -38,6 +40,7 @@ class LuaExprCodeFragmentImpl(project: Project, name: String, val inputText: Cha
         (viewProvider as SingleRootFileViewProvider).forceCachedPsi(this)
     }
 
+    var isInlineWatch = false
     private var myViewProvider: FileViewProvider? = null
     private var myContext: PsiElement? = null
 
@@ -48,7 +51,19 @@ class LuaExprCodeFragmentImpl(project: Project, name: String, val inputText: Cha
         myContext = context
         context?.let {
             val fileText = it.containingFile.text
-            val offset = it.startOffset
+            var offset: Int = -1
+            if (isInlineWatch) {
+                val textEditor = FileEditorManager.getInstance(project).getSelectedTextEditor()
+                textEditor?.caretModel?.let { caretModel ->
+                    val caretOffset = caretModel.offset
+                    val document = textEditor.document
+                    val line = document.getLineNumber(caretOffset)
+                    offset = document.getLineEndOffset(line)
+                }
+            }
+            if (offset == -1) {
+                offset = it.startOffset
+            }
             startText = fileText.substring(0, offset) + ""
             endText = "\n" + fileText.substring(offset)
         }

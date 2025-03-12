@@ -189,6 +189,13 @@ end
 
 local emmyHelper = rawget(_G, "emmyHelper")
 if emmyHelper == nil then
+    emmy.queryForPairs = function(t)
+        local ret = {}
+        for k, v in pairs(t) do
+            ret[k] = v
+        end
+        return ret
+    end
     rawset(_G, 'emmyHelper', emmy)
 elseif emmy.queryVariable then
     emmyHelper.queryVariable = emmy.queryVariable

@@ -41,14 +41,9 @@ import java.net.BindException
 open class LuaMobDebugProcess(session: XDebugSession) : LuaDebugProcess(session), MobServerListener {
 
     private val runProfile: IRemoteConfiguration = session.runProfile as IRemoteConfiguration
-    private val editorsProvider: LuaDebuggerEditorsProvider = LuaDebuggerEditorsProvider()
     private var mobServer: MobServer? = null
     private var mobClient: MobClient? = null
     private var baseDir: String? = null
-
-    override fun getEditorsProvider(): XDebuggerEditorsProvider {
-        return editorsProvider
-    }
 
     override fun sessionInitialized() {
         super.sessionInitialized()

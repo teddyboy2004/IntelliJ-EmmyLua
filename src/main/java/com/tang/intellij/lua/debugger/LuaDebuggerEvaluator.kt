@@ -34,19 +34,17 @@ import com.tang.intellij.lua.psi.*
 abstract class LuaDebuggerEvaluator : XDebuggerEvaluator() {
     override fun getExpressionRangeAtOffset(project: Project, document: Document, offset: Int, sideEffectsAllowed: Boolean): TextRange? {
         var currentRange: TextRange? = null
-        PsiDocumentManager.getInstance(project).commitAndRunReadAction {
+        PsiDocumentManager.getInstance(project).run {
             try {
-                val file = PsiDocumentManager.getInstance(project).getPsiFile(document) ?: return@commitAndRunReadAction
-                if (currentRange == null) {
-                    val ele = file.findElementAt(offset)
-                    if (ele != null && ele.node.elementType == LuaTypes.ID) {
-                        val parent = ele.parent
-                        when (parent) {
-                            is LuaFuncDef,
-                            is LuaLocalFuncDef -> currentRange = ele.textRange
-                            is LuaClassMethodName,
-                            is PsiNameIdentifierOwner -> currentRange = parent.textRange
-                        }
+                val file = PsiDocumentManager.getInstance(project).getPsiFile(document) ?: return@run
+                val ele = file.findElementAt(offset)
+                if (ele != null && ele.node.elementType == LuaTypes.ID) {
+                    val parent = ele.parent
+                    when (parent) {
+                        is LuaFuncDef,
+                        is LuaLocalFuncDef -> currentRange = ele.textRange
+                        is LuaClassMethodName,
+                        is PsiNameIdentifierOwner -> currentRange = parent.textRange
                     }
                 }
 

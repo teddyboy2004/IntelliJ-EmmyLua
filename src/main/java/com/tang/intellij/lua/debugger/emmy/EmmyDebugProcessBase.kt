@@ -34,7 +34,6 @@ import com.tang.intellij.lua.psi.LuaFileUtil
 import java.io.File
 
 abstract class EmmyDebugProcessBase(session: XDebugSession) : LuaDebugProcess(session), ITransportHandler {
-    private val editorsProvider = LuaDebuggerEditorsProvider()
     private val evalHandlers = mutableListOf<IEvalResultHandler>()
     private val breakpoints = mutableMapOf<Int, BreakPoint>()
     private var idCounter = 0;
@@ -153,7 +152,8 @@ abstract class EmmyDebugProcessBase(session: XDebugSession) : LuaDebugProcess(se
     }
 
     override fun runToPosition(position: XSourcePosition, context: XSuspendContext?) {
-        send(AddBreakPointReq(listOf(BreakPoint(position.file.path, position.line + 1, null, null, null))))
+        send(AddBreakPointReq(listOf(BreakPoint(position.file.path, position.line + 1, null, null, null, true))))
+        send(DebugActionMessage(DebugAction.Continue))
     }
 
     private fun onBreak(data: BreakNotify) {
@@ -208,10 +208,6 @@ abstract class EmmyDebugProcessBase(session: XDebugSession) : LuaDebugProcess(se
 
     override fun startStepOut(context: XSuspendContext?) {
         send(DebugActionMessage(DebugAction.StepOut))
-    }
-
-    override fun getEditorsProvider(): XDebuggerEditorsProvider {
-        return editorsProvider
     }
 
     fun addEvalResultHandler(handler: IEvalResultHandler) {

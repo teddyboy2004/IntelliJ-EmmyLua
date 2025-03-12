@@ -173,35 +173,10 @@ class TableXValue(v: VariableValue, val frame: EmmyDebugStackFrame) : LuaXValue(
                     if (value is TableXValue) {
                         children.clear()
                         children.addAll(value.children)
-                        var hasPairs = false
                         children.forEach {
                             it.parent = this@TableXValue
-                            if (it.value.name == "__pairs" && it.value.valueTypeValue == LuaValueType.TFUNCTION && this@TableXValue.value.valueTypeValue == LuaValueType.TUSERDATA) {
-                                hasPairs = true
-                            }
                         }
-                        if (hasPairs) {
-                            ev.eval("local _ = {}\n for k, v in pairs($evalExpr) do\n _[k] = v\n end\n return _", -1, object : XDebuggerEvaluator.XEvaluationCallback {
-                                override fun errorOccurred(err: String) {
-                                    addChildrenToNode(node)
-                                }
-
-                                override fun evaluated(ret: XValue) {
-                                    if (ret is TableXValue) {
-                                        ret.children.forEach {
-                                            val find = children.find { child -> child.name == it.name }
-                                            if (find == null) {
-                                                it.parent = this@TableXValue
-                                                children.add(it)
-                                            }
-                                        }
-                                    }
-                                    addChildrenToNode(node)
-                                }
-                            }, 2)
-                        } else {
-                            addChildrenToNode(node)
-                        }
+                        addChildrenToNode(node)
                     } else { // todo: table is nil?
                         node.setErrorMessage("nil")
                     }

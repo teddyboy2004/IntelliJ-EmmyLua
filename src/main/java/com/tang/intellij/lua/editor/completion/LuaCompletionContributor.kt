@@ -27,6 +27,12 @@ import com.intellij.psi.PsiNamedElement
 import com.intellij.psi.tree.TokenSet
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.ProcessingContext
+import com.intellij.xdebugger.XDebugSession
+import com.intellij.xdebugger.XDebuggerManager
+import com.intellij.xdebugger.impl.XDebugSessionImpl
+import com.intellij.xdebugger.impl.inline.XInlineWatchesView
+import com.intellij.xdebugger.impl.ui.DebuggerUIUtil
+import com.intellij.xdebugger.impl.ui.XDebugSessionTab
 import com.tang.intellij.lua.comment.LuaCommentUtil
 import com.tang.intellij.lua.lang.LuaIcons
 import com.tang.intellij.lua.lang.LuaLanguage
@@ -35,6 +41,7 @@ import com.tang.intellij.lua.project.LuaSettings
 import com.tang.intellij.lua.psi.*
 import com.tang.intellij.lua.psi.impl.LuaExprCodeFragmentImpl
 import com.tang.intellij.lua.refactoring.LuaRefactoringUtil
+import java.util.*
 
 /**
 

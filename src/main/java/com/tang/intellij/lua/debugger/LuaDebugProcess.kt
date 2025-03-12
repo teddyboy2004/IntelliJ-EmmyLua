@@ -31,6 +31,7 @@ import com.intellij.xdebugger.XSourcePosition
 import com.intellij.xdebugger.breakpoints.XBreakpointHandler
 import com.intellij.xdebugger.breakpoints.XBreakpointProperties
 import com.intellij.xdebugger.breakpoints.XLineBreakpoint
+import com.intellij.xdebugger.evaluation.XDebuggerEditorsProvider
 import com.intellij.xdebugger.frame.XSuspendContext
 import com.intellij.xdebugger.impl.XDebugSessionImpl
 import com.intellij.xdebugger.impl.actions.XDebuggerActions
@@ -40,6 +41,7 @@ import com.intellij.xdebugger.impl.actions.XDebuggerActions
  * Created by tangzx on 2017/5/1.
  */
 abstract class LuaDebugProcess protected constructor(session: XDebugSession) : XDebugProcess(session), DebugLogger {
+    private val editorsProvider = LuaDebuggerEditorsProvider()
 
     override fun sessionInitialized() {
         super.sessionInitialized()
@@ -158,6 +160,20 @@ abstract class LuaDebugProcess protected constructor(session: XDebugSession) : X
 
         // file and source position not found, run it
         run()
+    }
+
+    override fun getEditorsProvider(): XDebuggerEditorsProvider {
+        val stackTrace = Thread.currentThread().stackTrace
+        var isInlineWatch = false
+        stackTrace.forEach {
+            if (it.className.contains("InlineWatch")) {
+                isInlineWatch = true
+            }
+        }
+        if (isInlineWatch) {
+            editorsProvider.inlineWatchGetTime = System.currentTimeMillis()
+        }
+        return editorsProvider
     }
 
     protected abstract fun run()
