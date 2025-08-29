@@ -38,7 +38,7 @@ import com.tang.intellij.lua.ty.returnStatement
  */
 class LuaGotoSuperHandler : GotoTargetHandler(), LanguageCodeInsightActionHandler {
     override fun getFeatureUsedKey(): String? {
-        return GotoSuperAction.FEATURE_ID
+        return ""
     }
 
     override fun getSourceAndTargetElements(editor: Editor, file: PsiFile): GotoData? {

@@ -26,6 +26,7 @@ import com.tang.intellij.lua.debugger.LuaXStringPresentation
 import com.tang.intellij.lua.debugger.emmy.EmmyDebugStackFrame
 import com.tang.intellij.lua.debugger.emmy.LuaValueType
 import com.tang.intellij.lua.debugger.emmy.VariableValue
+import com.tang.intellij.lua.debugger.utils.KeyNameUtil
 import com.tang.intellij.lua.lang.LuaIcons
 import com.tang.intellij.lua.project.LuaSettings
 import java.awt.datatransfer.StringSelection
@@ -192,7 +193,7 @@ class TableXValue(v: VariableValue, val frame: EmmyDebugStackFrame) : LuaXValue(
         val funcList = mutableListOf<LuaXValue>()
         val otherList = mutableListOf<LuaXValue>()
         children.forEach {
-            if (it.name.startsWith("__") || it.name.startsWith("(metatable")) {
+            if (it.name.startsWith("__") || it.name.startsWith("(metatable") || it.name.startsWith(".")) {
                 metadataList.add(it)
             } else if (it.value.valueTypeValue == LuaValueType.TFUNCTION) {
                 funcList.add(it)
@@ -201,7 +202,8 @@ class TableXValue(v: VariableValue, val frame: EmmyDebugStackFrame) : LuaXValue(
             }
         }
 
-        val comparator= object : Comparator<LuaXValue> {
+
+        val comparator = object : Comparator<LuaXValue> {
             override fun compare(o1: LuaXValue, o2: LuaXValue): Int {
                 val n1 = o1.name.toIntOrNull()
                 val n2 = o2.name.toIntOrNull()
@@ -250,9 +252,8 @@ class TableXValue(v: VariableValue, val frame: EmmyDebugStackFrame) : LuaXValue(
     }
 
 
-
     fun convertToLuaString(sb: StringBuffer, name: String, luaValue: LuaXValue) {
-        if (name.startsWith("(") || name.startsWith("_")) {
+        if (name.startsWith("(") || name.startsWith("_") || name.startsWith(".") || name.startsWith("meta")) {
             return
         }
         when (luaValue) {
@@ -262,7 +263,13 @@ class TableXValue(v: VariableValue, val frame: EmmyDebugStackFrame) : LuaXValue(
                 luaValue.children.forEach {
                     val value = it
                     val len = sb.length
-                    convertToLuaString(sb, value.value.name, value)
+                    var valueName = value.value.name
+                    if (value.value.nameTypeValue == LuaValueType.TNUMBER) {
+                        valueName = "[$valueName]" // 数定要特殊处理
+                    } else if (!KeyNameUtil.isValidFieldName(valueName)) {
+                        valueName = "['$valueName']" // 不合法的变量名要特称处理
+                    }
+                    convertToLuaString(sb, valueName, value)
                     if (sb.length != len) {
                         sb.append(", ")
                     }

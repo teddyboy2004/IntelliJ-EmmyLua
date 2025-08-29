@@ -34,3 +34,4 @@ abstract class LuaCallPostfixTemplate(private val fn:String) : StringBasedPostfi
 
 class LuaToStringPostfixTemplate : LuaCallPostfixTemplate("tostring")
 class LuaToNumberPostfixTemplate : LuaCallPostfixTemplate("tonumber")
+class LuaNextPostfixTemplate : LuaCallPostfixTemplate("next")

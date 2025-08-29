@@ -19,6 +19,8 @@ package com.tang.intellij.lua.editor
 import com.intellij.lang.refactoring.RefactoringSupportProvider
 import com.intellij.psi.PsiElement
 import com.intellij.refactoring.RefactoringActionHandler
+import com.intellij.refactoring.changeSignature.ChangeSignatureHandler
+import com.tang.intellij.lua.refactoring.changeSignature.LuaChangeSignatureHandler
 import com.tang.intellij.lua.refactoring.rename.LuaIntroduceVarHandler
 
 /**
@@ -36,5 +38,9 @@ class LuaRefactoringSupportProvider : RefactoringSupportProvider() {
 
     override fun getIntroduceVariableHandler(element: PsiElement?): RefactoringActionHandler {
         return LuaIntroduceVarHandler()
+    }
+
+    override fun getChangeSignatureHandler(): ChangeSignatureHandler? {
+        return LuaChangeSignatureHandler()
     }
 }

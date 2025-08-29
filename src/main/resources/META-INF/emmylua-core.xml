@@ -21,8 +21,7 @@
     <depends>com.intellij.modules.lang</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <xdebugger.attachDebuggerProvider
-                implementation="com.tang.intellij.lua.debugger.emmyAttach.EmmyAttachDebuggerProvider"/>
+        <xdebugger.attachDebuggerProvider implementation="com.tang.intellij.lua.debugger.emmyAttach.EmmyAttachDebuggerProvider"/>
 
         <programRunner implementation="com.tang.intellij.lua.debugger.emmyLaunch.EmmyLaunchRunner"/>
         <configurationType implementation="com.tang.intellij.lua.debugger.emmyLaunch.EmmyLaunchConfigurationType"/>
@@ -80,6 +79,7 @@
         <nameSuggestionProvider implementation="com.tang.intellij.lua.editor.LuaNameSuggestionProvider"/>
         <qualifiedNameProvider implementation="com.tang.intellij.lua.editor.LuaQualifiedNameProvider"/>
         <renamePsiElementProcessor implementation="com.tang.intellij.lua.refactoring.rename.RenameLuaMethodProcessor"/>
+        <renamePsiElementProcessor implementation="com.tang.intellij.lua.refactoring.rename.RenameLuaClassProcessor"/>
         <inlineActionHandler implementation="com.tang.intellij.lua.refactoring.inline.LuaInlineActionHandler"/>
         <moveFileHandler implementation="com.tang.intellij.lua.refactoring.move.LuaMoveFileHandler"/>
         <renameInputValidator implementation="com.tang.intellij.lua.refactoring.rename.LuaDocClassRenameInputValidator"/>
@@ -166,7 +166,7 @@
         <configurationType implementation="com.tang.intellij.lua.debugger.emmy.EmmyDebugConfigurationType"/>
         <xdebugger.breakpointType implementation="com.tang.intellij.lua.debugger.LuaLineBreakpointType"/>
         <analyzeStacktraceFilter implementation="com.tang.intellij.lua.debugger.LuaAnalyzeStacktraceFilter"/>
-<!--        <xdebugger.attachDebuggerProvider implementation="com.tang.intellij.lua.debugger.emmyAttach.EmmyAttachDebuggerProvider"/>-->
+        <!--        <xdebugger.attachDebuggerProvider implementation="com.tang.intellij.lua.debugger.emmyAttach.EmmyAttachDebuggerProvider"/>-->
 
         <!--templates-->
         <defaultLiveTemplates file="/liveTemplates/lua.xml"/>
@@ -277,6 +277,11 @@
             <language>Lua</language>
             <category>Lua</category>
             <className>com.tang.intellij.lua.codeInsight.intention.AppendNotNilIntention</className>
+        </intentionAction>
+        <intentionAction>
+            <language>Lua</language>
+            <category>Lua</category>
+            <className>com.tang.intellij.lua.codeInsight.intention.AddRequireIntention</className>
         </intentionAction>
 
         <lang.inspectionSuppressor language="Lua" implementationClass="com.tang.intellij.lua.codeInsight.inspection.LuaSuppressManager"/>
@@ -416,6 +421,10 @@
         <action class="com.tang.intellij.lua.actions.XDebugCopyValueTable" text="Copy Value As Table" id="lua.XDebugCopyValueTable">
             <add-to-group group-id="XDebugger.ValueGroup" anchor="after" relative-to-action="XDebugger.CopyValue"/>
         </action>
+        <action class="com.tang.intellij.lua.actions.XDebugCopyValuePath" text="Copy Value Path" id="lua.XDebugCopyValuePath">
+            <add-to-group group-id="XDebugger.ValueGroup" anchor="after" relative-to-action="lua.XDebugCopyValueTable"/>
+        </action>
+        <action id="GotoImplementation" class="com.tang.intellij.lua.actions.LuaGotoImplementationAction" replace="true"/>
     </actions>
 
     <extensionPoints>

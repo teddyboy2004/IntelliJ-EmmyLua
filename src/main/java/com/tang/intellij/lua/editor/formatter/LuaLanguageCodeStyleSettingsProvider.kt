@@ -71,6 +71,11 @@ class LuaLanguageCodeStyleSettingsProvider : LanguageCodeStyleSettingsProvider()
                 )
 
                 consumer.showCustomOption(LuaCodeStyleSettings::class.java,
+                    "SIMPLE_COMMENT_IN_ONE_LINE",
+                    "Simple comment in one line",
+                    "Keep when reformatting")
+
+                consumer.showCustomOption(LuaCodeStyleSettings::class.java,
                         "ALIGN_TABLE_FIELD_ASSIGN",
                         "Align table field assign",
                         "Table")

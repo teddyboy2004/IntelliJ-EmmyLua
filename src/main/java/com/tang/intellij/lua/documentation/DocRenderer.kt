@@ -178,6 +178,19 @@ private fun renderReturn(sb: StringBuilder, tagReturn: LuaDocTagReturn, tyRender
     }
 }
 
+fun renderAliasDef(sb: StringBuilder, tag: LuaDocTagAlias, tyRenderer: ITyRenderer) {
+    sb.append("<pre style=\"font-family:'Microsoft YaHei'\">")
+    sb.append("alias ")
+    val name = tag.name
+    if (name != null) {
+        sb.append(name.surroundHighlight(bgColor = "transparent", color = "#FED330"))
+        sb.append(" ")
+    }
+    val ty = tag.type
+    tyRenderer.render(ty, sb)
+    sb.append("</pre>")
+}
+
 fun renderClassDef(sb: StringBuilder, tag: LuaDocTagClass, tyRenderer: ITyRenderer) {
     val cls = tag.type
     sb.append("<pre style=\"font-family:'Microsoft YaHei'\">")

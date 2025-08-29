@@ -116,7 +116,10 @@ class LuaParameterInfoHandler : ParameterInfoHandler<LuaArgs, ParameterInfoType>
         if (paramSize == index) start = length
         append(pi.name)
         append(":")
-        append(pi.ty.displayName)
+        var str = pi.ty.displayName
+        // 把html转换回来
+        str = str.replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&").replace("&quot;", "\"").replace("&apos;", "'")
+        append(str)
         if (paramSize == index) end = length
         return paramSize + 1
     }

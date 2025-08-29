@@ -24,6 +24,8 @@ import com.intellij.psi.TokenType
 import com.intellij.psi.formatter.common.AbstractBlock
 import com.intellij.psi.tree.IElementType
 import com.intellij.psi.tree.TokenSet
+import com.intellij.psi.util.elementType
+import com.tang.intellij.lua.editor.formatter.LuaCodeStyleSettings
 import com.tang.intellij.lua.editor.formatter.LuaFormatContext
 import com.tang.intellij.lua.psi.*
 import com.tang.intellij.lua.psi.LuaTypes.*
@@ -33,18 +35,21 @@ import java.util.*
 
  * Created by tangzx on 2016/12/3.
  */
-open class LuaScriptBlock(val psi: PsiElement,
-                          wrap: Wrap?,
-                          private val alignment: Alignment?,
-                          private val indent: Indent,
-                          val ctx: LuaFormatContext) : AbstractBlock(psi.node, wrap, alignment) {
+open class LuaScriptBlock(
+    val psi: PsiElement,
+    wrap: Wrap?,
+    private val alignment: Alignment?,
+    private val indent: Indent,
+    val ctx: LuaFormatContext
+) : AbstractBlock(psi.node, wrap, alignment) {
 
     companion object {
         //不创建 ASTBlock
         private val fakeBlockSet = TokenSet.create(BLOCK)
 
         //回车时
-        private val childAttrSet = TokenSet.orSet(fakeBlockSet, TokenSet.create(
+        private val childAttrSet = TokenSet.orSet(
+            fakeBlockSet, TokenSet.create(
                 IF_STAT,
                 DO_STAT,
                 FUNC_BODY,
@@ -54,10 +59,11 @@ open class LuaScriptBlock(val psi: PsiElement,
                 WHILE_STAT,
                 TABLE_EXPR,
                 ARGS
-        ))
+            )
+        )
     }
 
-    protected var childBlocks:List<LuaScriptBlock>? = null
+    protected var childBlocks: List<LuaScriptBlock>? = null
     val elementType: IElementType = node.elementType
 
     private var next: LuaScriptBlock? = null
@@ -67,16 +73,16 @@ open class LuaScriptBlock(val psi: PsiElement,
     val prevBlock get() = prev
 
     protected fun getPrevSkipComment(): LuaScriptBlock? =
-            if (prev?.psi is PsiComment) prev?.getPrevSkipComment() else prev
+        if (prev?.psi is PsiComment) prev?.getPrevSkipComment() else prev
 
     protected fun getNextSkipComment(): LuaScriptBlock? =
-            if (next?.psi is PsiComment) next?.getNextSkipComment() else next
+        if (next?.psi is PsiComment) next?.getNextSkipComment() else next
 
     private var parent: LuaScriptBlock? = null
     val parentBlock get() = parent
 
     private fun shouldCreateBlockFor(node: ASTNode) =
-            node.textRange.length != 0 && node.elementType !== TokenType.WHITE_SPACE
+        node.textRange.length != 0 && node.elementType !== TokenType.WHITE_SPACE
 
     override fun buildChildren(): List<Block> {
         if (childBlocks == null) {
@@ -114,7 +120,7 @@ open class LuaScriptBlock(val psi: PsiElement,
         }
     }
 
-    protected open fun buildChild(child:PsiElement, indent: Indent? = null): LuaScriptBlock {
+    protected open fun buildChild(child: PsiElement, indent: Indent? = null): LuaScriptBlock {
         val childIndent = indent ?: Indent.getNoneIndent()
         return createBlock(child, childIndent, null)
     }
@@ -132,6 +138,7 @@ open class LuaScriptBlock(val psi: PsiElement,
             is LuaIndexExpr -> LuaIndexExprBlock(element, wrap, alignment, childIndent, ctx)
             is LuaAssignStat,
             is LuaLocalDef -> LuaAssignBlock(element, wrap, alignment, childIndent, ctx)
+
             else -> LuaScriptBlock(element, wrap, alignment, childIndent, ctx)
         }
         block.parent = this

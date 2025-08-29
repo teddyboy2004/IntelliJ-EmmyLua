@@ -22,6 +22,8 @@ import com.intellij.lang.documentation.DocumentationProvider
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiManager
 import com.intellij.psi.util.PsiTreeUtil
+import com.tang.intellij.lua.comment.psi.LuaDocTableTy
+import com.tang.intellij.lua.comment.psi.LuaDocTagAlias
 import com.tang.intellij.lua.comment.psi.LuaDocTagClass
 import com.tang.intellij.lua.comment.psi.LuaDocTagField
 import com.tang.intellij.lua.editor.completion.LuaDocumentationLookupElement
@@ -47,8 +49,10 @@ class LuaDocumentationProvider : AbstractDocumentationProvider(), DocumentationP
         if (element != null) {
             when (element) {
                 is LuaTypeGuessable -> {
-                    val ty = element.guessType(SearchContext.get(element.project))
+                    val context = SearchContext.get(element.project)
+                    val ty = element.guessType(context)
                     return buildString {
+                        renderer.project = element.project
                         renderTy(this, ty, renderer)
                     }
                 }
@@ -84,6 +88,14 @@ class LuaDocumentationProvider : AbstractDocumentationProvider(), DocumentationP
     private fun generateDoc(element: PsiElement, tyRenderer: ITyRenderer, sb: StringBuilder) {
         when (element) {
             is LuaParamNameDef -> renderParamNameDef(sb, element)
+            is LuaDocTagAlias -> {
+                if (element.children[0] is LuaDocTableTy){
+                    tyRenderer.renderTableDetail = true
+                    renderAliasDef(sb, element, tyRenderer)
+                    tyRenderer.renderTableDetail = false
+                }
+            }
+
             is LuaDocTagClass -> {
                 tyRenderer.renderClassDetail = true
                 renderClassDef(sb, element, tyRenderer)
@@ -97,8 +109,10 @@ class LuaDocumentationProvider : AbstractDocumentationProvider(), DocumentationP
                     sb.append("local <b>${element.name}</b>:")
                     val ty = element.guessType(SearchContext.get(element.project))
                     tyRenderer.renderClassDetail = true
+                    tyRenderer.renderTableDetail = true
                     renderTy(sb, ty, tyRenderer)
                     tyRenderer.renderClassDetail = false
+                    tyRenderer.renderTableDetail = false
                 }
 
                 val owner = PsiTreeUtil.getParentOfType(element, LuaCommentOwner::class.java)

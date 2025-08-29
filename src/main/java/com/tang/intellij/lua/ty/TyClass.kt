@@ -296,6 +296,7 @@ fun createSerializedClass(name: String,
     return TySerializedClass(name, varName, supper, alias, flags)
 }
 
+
 private val PsiFile.uid: String get() {
     if (this is LuaPsiFile)
         return this.uid

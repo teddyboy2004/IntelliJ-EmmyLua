@@ -31,6 +31,7 @@ public class LuaCodeStyleSettings extends CustomCodeStyleSettings {
     public boolean SPACE_INSIDE_INLINE_TABLE = true;
 
     public boolean ALIGN_TABLE_FIELD_ASSIGN = false;
+    public boolean SIMPLE_COMMENT_IN_ONE_LINE = true; // 是否将单行注释放在同一行
 
     LuaCodeStyleSettings(CodeStyleSettings container) {
         super(LuaLanguage.INSTANCE.getID(), container);

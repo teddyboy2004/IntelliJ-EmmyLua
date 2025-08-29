@@ -24,6 +24,7 @@ import com.intellij.xdebugger.impl.XDebugSessionImpl
 import com.tang.intellij.lua.debugger.remote.LuaMobDebugProcess
 import com.tang.intellij.lua.debugger.remote.LuaMobStackFrame
 import com.tang.intellij.lua.debugger.remote.commands.EvaluatorCommand
+import com.tang.intellij.lua.debugger.utils.KeyNameUtil
 import org.luaj.vm2.LuaFunction
 import org.luaj.vm2.LuaNumber
 import org.luaj.vm2.LuaString
@@ -110,31 +111,46 @@ class LuaRTable(name: String) : LuaRValue(name) {
             node.addChildren(list!!, true)
     }
 
-    fun convertToLuaString(sb: StringBuffer, name:String, luaValue: LuaValue) {
+    fun convertToLuaString(sb: StringBuffer, name: String, luaValue: LuaValue) {
         when (luaValue) {
-            is LuaTable ->{
+            is LuaTable -> {
                 sb.append(name)
                 sb.append(" = {")
                 luaValue.keys().forEach {
                     val value = luaValue.get(it)
                     val len = sb.length
-                    convertToLuaString(sb, it.toString(), value)
-                    if (sb.length != len)
-                    {
+                    var childName = it.toString()
+                    when (it.type()) {
+                        LuaValue.TNUMBER -> {
+                            childName = "[$childName]" // 数字索引要特殊处理
+                        }
+
+                        else -> {
+                            // 判断当前是否合法变量名
+                            if (!KeyNameUtil.isValidFieldName(childName)) {
+                                childName = "['$childName']" // 不合法变量名要特殊处理
+                            }
+                        }
+                    }
+                    convertToLuaString(sb, childName, value)
+                    if (sb.length != len) {
                         sb.append(", ")
                     }
                 }
                 sb.append("}")
             }
+
             is LuaFunction, is LuaUserdata, is LuaThread -> {
                 return
             }
+
             is LuaString -> {
                 sb.append(name)
                 sb.append(" = '")
                 sb.append(luaValue.toString())
                 sb.append("'")
             }
+
             else -> {
                 sb.append(name)
                 sb.append(" = ")
@@ -143,7 +159,7 @@ class LuaRTable(name: String) : LuaRValue(name) {
         }
     }
 
-    fun copyAsTableString(){
+    fun copyAsTableString() {
         val process = session.debugProcess as LuaMobDebugProcess
         val frame = session.currentStackFrame as LuaMobStackFrame
         process.runCommand(EvaluatorCommand("return $evalExpr", 5, frame.stackLevel, object : EvaluatorCommand.Callback {
@@ -155,7 +171,7 @@ class LuaRTable(name: String) : LuaRValue(name) {
                 val code2Str: String? = code.get(1).toString()
                 val code2 = standardGlobals.load(String.format("local _=%s return _", code2Str))
 
-                val value = create(evalExpr, code2.call(), evalExpr, process.getSession()) as LuaRTable
+                val value = create(evalExpr, code2.call(), evalExpr, process.session) as LuaRTable
                 val sb = StringBuffer()
                 sb.append("local ")
                 val table = value.data as LuaTable

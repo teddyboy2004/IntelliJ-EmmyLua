@@ -24,9 +24,12 @@ import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiNamedElement
 import com.intellij.refactoring.move.moveFilesOrDirectories.MoveFileHandler
 import com.intellij.usageView.UsageInfo
+import com.tang.intellij.lua.psi.LuaElementFactory
 import com.tang.intellij.lua.psi.LuaPsiFile
 import com.tang.intellij.lua.psi.LuaFileUtil
+import com.tang.intellij.lua.psi.LuaLiteralExpr
 import com.tang.intellij.lua.reference.LuaRequireReference
+import com.tang.intellij.lua.reference.LuaStringReference
 import java.util.*
 
 class LuaMoveFileHandler : MoveFileHandler() {
@@ -44,7 +47,7 @@ class LuaMoveFileHandler : MoveFileHandler() {
 
     override fun findUsages(file: PsiFile, newParent: PsiDirectory, searchInComments: Boolean, searchInNonJavaFiles: Boolean): MutableList<UsageInfo> {
         val usages = mutableListOf<UsageInfo>()
-        val handler = object : FindUsagesHandler(file){}
+        val handler = object : FindUsagesHandler(file) {}
         val elementsToProcess = ArrayList<PsiElement>()
         Collections.addAll(elementsToProcess, *handler.primaryElements)
         Collections.addAll(elementsToProcess, *handler.secondaryElements)
@@ -57,22 +60,42 @@ class LuaMoveFileHandler : MoveFileHandler() {
                 true
             }, FindUsagesHandler.createFindUsagesOptions(file.project, null))
         }
+
+        // 处理文本引用
+        LuaStringReference.fileMaps[file]?.forEach { expr ->
+            val reference = LuaStringReference.handleGetReference(expr)
+            reference?.let {
+                val usageInfo = UsageInfo(reference)
+                usageInfo.element?.putCopyableUserData(REFERENCED_ELEMENT, file)
+                usages.add(usageInfo)
+                usages.add(usageInfo)
+            }
+        }
+        LuaStringReference.fileMaps[file]?.clear()
         return usages
     }
 
     override fun retargetUsages(usageInfos: MutableList<UsageInfo>, oldToNewMap: MutableMap<PsiElement, PsiElement>) {
         for (usageInfo in usageInfos) {
-            val reference = usageInfo.reference
-            if (reference is LuaRequireReference) {
+            usageInfo.element?.let {
                 val element = usageInfo.element!!
-                val file = element.getCopyableUserData(REFERENCED_ELEMENT) as PsiFile
+                val file = element.getCopyableUserData(REFERENCED_ELEMENT)
                 element.putCopyableUserData(REFERENCED_ELEMENT, null)
-
-                val requirePath = LuaFileUtil.asRequirePath(file.project, file.virtualFile)
-                requirePath?.let {
-                    reference.setPath(requirePath)
+                if (file is LuaPsiFile) {
+                    val requirePath = LuaFileUtil.asRequirePath(file.project, file.virtualFile)
+                    val reference = usageInfo.reference
+                    if (reference is LuaRequireReference) {
+                        requirePath?.let {
+                            reference.setPath(requirePath)
+                        }
+                    } else if (element is LuaLiteralExpr) { // 处理文本替换引用
+                        // 创建新的Lua元素并替换原表达式
+                        val newEle = LuaElementFactory.createWith(element.project, "\"$requirePath\"")
+                        element.replace(newEle.firstChild)
+                    }
                 }
             }
+
         }
     }
 

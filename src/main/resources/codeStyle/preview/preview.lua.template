@@ -4,6 +4,10 @@ local emmy = {
     age = 7,
     longLongProperty = 123
 }
+
+if true then -- a short comment
+end
+
 local a = 1
 local b, c = 2, "3"
 local var = 1 -- a short comment

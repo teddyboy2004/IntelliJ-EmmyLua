@@ -170,6 +170,8 @@ class SocketClientTransporter(val host: String, val port: Int) : SocketChannelTr
                 connected = true
             }
         } catch (e: Exception) {
+            val message = e.message ?: e.javaClass.simpleName
+            logger?.error(message)
         }
 
         onConnect(connected)

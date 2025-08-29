@@ -17,11 +17,13 @@
 package com.tang.intellij.lua.reference
 
 import com.intellij.openapi.util.TextRange
+import com.intellij.openapi.util.io.FileUtil
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiReference
 import com.intellij.psi.PsiReferenceBase
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.IncorrectOperationException
+import com.tang.intellij.lua.comment.psi.LuaDocTagClass
 import com.tang.intellij.lua.lang.type.LuaString
 import com.tang.intellij.lua.project.LuaCustomHandleType
 import com.tang.intellij.lua.project.LuaSettings
@@ -29,7 +31,7 @@ import com.tang.intellij.lua.psi.*
 import com.tang.intellij.lua.psi.search.LuaShortNamesManager
 import com.tang.intellij.lua.reference.LuaReferenceContributor.ReferenceType
 import com.tang.intellij.lua.search.SearchContext
-import com.tang.intellij.lua.ty.returnStatement
+import com.tang.intellij.lua.stubs.index.LuaLiteralIndex
 
 class LuaStringReference(val expr: LuaLiteralExpr, private val referenceType: ReferenceType, val referenceText: String) : PsiReferenceBase<LuaLiteralExpr>(expr) {
 
@@ -39,43 +41,55 @@ class LuaStringReference(val expr: LuaLiteralExpr, private val referenceType: Re
         return emptyArray()
     }
 
+    override fun getElement(): LuaLiteralExpr {
+        return id
+    }
+
+    override fun bindToElement(element: PsiElement): PsiElement? {
+        return null
+    }
+
     @Throws(IncorrectOperationException::class)
     override fun handleElementRename(newElementName: String): PsiElement {
+        // 根据引用类型处理元素重命名
+        val project = expr.project
+        when (referenceType) {
+            ReferenceType.FilePath -> {
+                // 处理文件路径类型的引用
+                val name = FileUtil.getNameWithoutExtension(newElementName) // 获取不带扩展名的文件名
+                val last = referenceText.lastIndexOf('.') // 查找最后一个点号的位置
+                // 构建新的路径：如果原路径没有点号则直接用新名称，否则保留原路径前缀加上新名称
+                val path = if (last == -1) name else referenceText.take(last) + "." + name
+                // 创建新的Lua元素并替换原表达式
+                val newEle = LuaElementFactory.createWith(project, "\"$path\"")
+                expr.replace(newEle.firstChild)
+            }
+
+            ReferenceType.Class -> {
+                // 处理类类型的引用，直接使用新名称创建元素
+                val newEle = LuaElementFactory.createWith(project, "\"$newElementName\"")
+                expr.replace(newEle.firstChild)
+            }
+
+            else -> {} // 其他类型不做处理
+        }
         return expr
     }
 
     override fun getRangeInElement(): TextRange {
         val start = id.node.startOffset - myElement.node.startOffset
-        return TextRange(start, start + id.textLength)
+        return TextRange(start + 1, start + id.textLength - 1)
     }
 
     override fun isReferenceTo(element: PsiElement): Boolean {
-        val text = referenceText
-//        when (referenceType) {
-//            ReferenceType.None -> {
-//                return false
-//            }
-//
-////            ReferenceType.FilePath -> {
-////                val shortPath = LuaFileUtil.getShortPath(id.project, element.containingFile.originalFile.virtualFile)
-////                val path = shortPath.replace(".lua", "").replace('/', '.')
-////                if (path == text) {
-////                    return true
-////                }
-////            }
-//
-//            ReferenceType.Class -> {
-//                if (element is LuaTypeDef) {
-//                    if (element.type.displayName == text) {
-//                        return true
-//                    }
-//                }
-//            }
-//
-//            else -> {
-//            }
-//        }
-        return false
+        when (referenceType) {
+            ReferenceType.None -> {
+                return false
+            }
+
+            else ->
+                return myElement.manager.areElementsEquivalent(element, resolve())
+        }
     }
 
     override fun resolve(): PsiElement? {
@@ -85,34 +99,30 @@ class LuaStringReference(val expr: LuaLiteralExpr, private val referenceType: Re
         when (referenceType) {
             ReferenceType.FilePath -> {
                 val filePsi = resolveRequireFile(text, expr.project)
-                if (filePsi != null) {
-                    val returnStatement = filePsi.returnStatement()
-
-                    val exprList = returnStatement?.exprList?.exprList
-                    if (exprList?.size == 1) {
-                        val resolvedNameExpr = exprList.first() as? LuaNameExpr
-
-                        if (resolvedNameExpr != null) {
-                            val file = resolveInFile(resolvedNameExpr.name, resolvedNameExpr, context)
-                            if (file != null) {
-                                return file
-                            }
-                        }
-                    }
-                    if (returnStatement != null) {
-                        return returnStatement
-                    }
-                }
+//                if (filePsi != null) {
+//                    val returnStatement = filePsi.returnStatement()
+//
+//                    val exprList = returnStatement?.exprList?.exprList
+//                    if (exprList?.size == 1) {
+//                        val resolvedNameExpr = exprList.first() as? LuaNameExpr
+//
+//                        if (resolvedNameExpr != null) {
+//                            val file = resolveInFile(resolvedNameExpr.name, resolvedNameExpr, context)
+//                            if (file != null) {
+//                                return file
+//                            }
+//                        }
+//                    }
+//                    if (returnStatement != null) {
+//                        return returnStatement
+//                    }
+//                }
                 return filePsi
             }
 
             ReferenceType.Class -> {
                 // 支持跳转类型
-                val find = LuaShortNamesManager.getInstance(expr.project).findTypeDef(text, context)
-                if (find != null) {
-                    return find
-                }
-                return null
+                return LuaShortNamesManager.getInstance(expr.project).findTypeDef(text, context)
             }
 
             else -> return null
@@ -120,6 +130,8 @@ class LuaStringReference(val expr: LuaLiteralExpr, private val referenceType: Re
     }
 
     companion object {
+        val fileMaps = mutableMapOf<LuaPsiFile, MutableCollection<LuaLiteralExpr>>()
+
         fun handleGetReference(expr: LuaLiteralExpr): LuaStringReference? {
             var text = LuaString.getContent(expr.text).value
             if (text.isEmpty()) {
@@ -130,7 +142,7 @@ class LuaStringReference(val expr: LuaLiteralExpr, private val referenceType: Re
                 val nameRef = parent.expr
                 if (nameRef is LuaNameExpr) {
                     // 跳过require判断
-                    if (LuaSettings.isRequireLikeFunctionName(nameRef.getText())) {
+                    if (LuaSettings.isRequireLikeFunctionName(nameRef.text)) {
                         return null
                     }
                 }
@@ -150,6 +162,13 @@ class LuaStringReference(val expr: LuaLiteralExpr, private val referenceType: Re
                     val file = resolveRequireFile(text, project)
                     if (file != null) {
                         referenceType = ReferenceType.FilePath
+                        var exprs = fileMaps[file]
+                        if (exprs == null) {
+                            exprs = mutableSetOf()
+                        }
+                        exprs.add(expr)
+                        fileMaps[file] = exprs
+
                     }
                 } else {
                     val shortNamesManager = LuaShortNamesManager.getInstance(project)
@@ -180,6 +199,23 @@ class LuaStringReference(val expr: LuaLiteralExpr, private val referenceType: Re
                 null
             } else {
                 LuaStringReference(expr, referenceType, referenceText)
+            }
+        }
+
+        fun handleAddReference(target: LuaDocTagClass?, references: MutableCollection<PsiReference?>) {
+            if (target == null) {
+                return
+            }
+            // 处理类引用
+            val className = target.id.text
+            val context = SearchContext.get(target.project)
+            LuaLiteralIndex.find(className.hashCode(), context).forEach {
+                if (it.stringValue == className) {
+                    val reference = handleGetReference(it)
+                    if (reference?.referenceText == className) {
+                        references.add(reference)
+                    }
+                }
             }
         }
     }

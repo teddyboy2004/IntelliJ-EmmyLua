@@ -26,10 +26,12 @@ import com.tang.intellij.lua.psi.*
 import com.tang.intellij.lua.refactoring.LuaRefactoringUtil
 import com.tang.intellij.lua.search.SearchContext
 import com.tang.intellij.lua.stubs.index.LuaShortNameIndex
+import kotlin.math.max
 
 interface ITyRenderer {
     var renderClassDetail: Boolean
-    var renderTableDetail:Boolean
+    var renderTableDetail: Boolean
+    var renderAllMember: Boolean
     var project: Project?
 
     fun render(ty: ITy): String
@@ -48,6 +50,7 @@ private val MaxSingleLineGenericParams = 5;
 open class TyRenderer : TyVisitor(), ITyRenderer {
     override var renderClassDetail: Boolean = false
     override var renderTableDetail: Boolean = false
+    override var renderAllMember: Boolean = false
     override var project: Project? = null
 
     override fun render(ty: ITy): String {
@@ -124,11 +127,12 @@ open class TyRenderer : TyVisitor(), ITyRenderer {
             clazz is TyDocTable -> {
                 var text = "table"
                 if (renderTableDetail) {
+                    val sb = StringBuilder()
                     val list = mutableListOf<String>()
                     clazz.table.tableFieldList.forEach { it.ty?.let { ty -> list.add("${it.name}: ${render(ty.getType())}") } }
-                    text = "{ ${list.joinToString(", ")} }"
-                }
-                else if ((clazz.table.parent.parent is LuaDocTagAlias)) {
+                    sb.append("{ ${list.joinToString(", ")} }")
+                    text = sb.toString()
+                } else if ((clazz.table.parent.parent is LuaDocTagAlias)) {
                     val s = (clazz.table.parent.parent as LuaDocTagAlias).id?.text
                     if (!s.isNullOrEmpty()) {
                         text = s
@@ -137,7 +141,7 @@ open class TyRenderer : TyVisitor(), ITyRenderer {
                 text
             }
 
-            clazz is TyClass && renderClassDetail -> renderClassMember(clazz)
+            clazz is TyClass && (renderClassDetail||renderAllMember) -> renderClassMember(clazz)
             clazz is TySerializedClass -> renderType(clazz.varName)
             clazz.hasFlag(TyFlags.ANONYMOUS_TABLE) -> {
                 var type = Constants.WORD_TABLE
@@ -194,8 +198,12 @@ open class TyRenderer : TyVisitor(), ITyRenderer {
 
         val list = mutableListOf<String>()
         val members = hashSetOf<LuaClassMember>()
+        var maxMember = MaxRenderedTableMembers
+        if (renderAllMember) {
+            maxMember = 999
+        }
         clazz.processMembers(context) { _, member ->
-            if (list.size >= MaxRenderedTableMembers) {
+            if (list.size >= maxMember) {
                 return@processMembers
             }
             if (member is LuaClassMethod) {
@@ -266,7 +274,11 @@ open class TyRenderer : TyVisitor(), ITyRenderer {
         if (clazz is TySerializedClass && list.isEmpty()) {
             return Constants.WORD_NIL
         }
-        return "${className.surroundHighlight(bgColor = "transparent", color = "#FED330")} ${joinSingleLineOrWrap(list, MaxSingleLineTableMembers, " ", "{", "}")}"
+        var maxOnLine = MaxSingleLineTableMembers
+        if (renderAllMember) {
+            maxOnLine = 999;
+        }
+        return "${className.surroundHighlight(bgColor = "transparent", color = "#FED330")} ${joinSingleLineOrWrap(list, maxOnLine, " ", "{", "}")}"
     }
 
 
@@ -289,6 +301,9 @@ open class TyRenderer : TyVisitor(), ITyRenderer {
                     wrapLine = true
                     break
                 }
+            }
+            if (renderAllMember) {
+                wrapLine = true
             }
             if (list.size <= maxOnLine && !wrapLine) {
                 list.joinToString("$divider ", if (spaceWrapItems) "$prefix " else prefix, if (spaceWrapItems) " $suffix" else suffix)

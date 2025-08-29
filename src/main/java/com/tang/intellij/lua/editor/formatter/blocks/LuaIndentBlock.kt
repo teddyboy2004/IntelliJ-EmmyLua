@@ -18,6 +18,7 @@ package com.tang.intellij.lua.editor.formatter.blocks
 
 import com.intellij.formatting.*
 import com.intellij.psi.tree.TokenSet
+import com.intellij.psi.util.elementType
 import com.tang.intellij.lua.editor.formatter.LuaFormatContext
 import com.tang.intellij.lua.psi.LuaIndentRange
 import com.tang.intellij.lua.psi.LuaTypes.*
@@ -53,6 +54,11 @@ open class LuaIndentBlock(psi: LuaIndentRange, wrap: Wrap?, alignment: Alignment
                 if (set.contains(child1.elementType) && isSimpleBlock(child1) { it.nextBlock }) {
                     return space
                 }
+            }
+        }
+        if (ctx.luaSettings.SIMPLE_COMMENT_IN_ONE_LINE) { // 处理简单注释不换行
+            if (child1 is LuaScriptBlock && child2 is LuaScriptBlock && child2.psi.elementType === SHORT_COMMENT) {
+                return space
             }
         }
 

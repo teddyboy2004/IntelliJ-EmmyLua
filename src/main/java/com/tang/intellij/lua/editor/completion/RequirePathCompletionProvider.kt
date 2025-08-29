@@ -19,13 +19,17 @@ package com.tang.intellij.lua.editor.completion
 import com.intellij.codeInsight.completion.*
 import com.intellij.codeInsight.lookup.LookupElement
 import com.intellij.codeInsight.lookup.LookupElementBuilder
+import com.intellij.openapi.application.invokeLater
+import com.intellij.openapi.externalSystem.autoimport.AutoImportProjectTracker
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.refactoring.suggested.endOffset
 import com.tang.intellij.lua.lang.LuaFileType
 import com.tang.intellij.lua.lang.LuaIcons
 import com.tang.intellij.lua.lang.type.LuaString
 import com.tang.intellij.lua.project.LuaSourceRootManager
+import kotlinx.html.dom.document
 
 /**
  *
@@ -41,15 +45,19 @@ open class RequirePathCompletionProvider : LuaCompletionProvider() {
     }
 
     internal fun addPaths(completionParameters: CompletionParameters, completionResultSet: CompletionResultSet) {
-        val file = completionParameters.originalFile
-        val cur = file.findElementAt(completionParameters.offset - 1)
-        if (cur != null) {
-            val ls = LuaString.getContent(cur.text)
-            val content = ls.value.replace('/', PATH_SPLITTER) //统一用.来处理，aaa.bbb.ccc
-
-            val resultSet = completionResultSet.withPrefixMatcher(content)
-            addAllFiles(completionParameters, resultSet)
-        }
+//        val file = completionParameters.originalFile
+//        val cur = file.findElementAt(completionParameters.offset - 1)
+//        if (cur != null) {
+//            val ls = LuaString.getContent(cur.text)
+//            val content = ls.value.replace('/', PATH_SPLITTER) //统一用.来处理，aaa.bbb.ccc
+//            val resultSet = completionResultSet.withPrefixMatcher(content)
+//            addAllFiles(completionParameters, resultSet)
+//        }
+        // 上面的处理会导致光标在路径中间播放时表现异常，修改处理方案
+        val matcher = completionResultSet.prefixMatcher.prefix
+        val content = matcher.replace('/', PATH_SPLITTER) //统一用.来处理，aaa.bbb.ccc
+        val resultSet = completionResultSet.withPrefixMatcher(content)
+        addAllFiles(completionParameters, resultSet)
     }
 
     internal fun addAllFiles(completionParameters: CompletionParameters, completionResultSet: CompletionResultSet) {
@@ -73,15 +81,15 @@ open class RequirePathCompletionProvider : LuaCompletionProvider() {
                 addAllFiles(project, completionResultSet, newPath, child.children)
             } else if (child.fileType === LuaFileType.INSTANCE) {
                 val lookupElement = LookupElementBuilder
-                        .create(newPath)
-                        .withIcon(LuaIcons.FILE)
-                        .withInsertHandler(getInsertHandler())
+                    .create(newPath)
+                    .withIcon(LuaIcons.FILE)
+                    .withInsertHandler(getInsertHandler())
                 completionResultSet.addElement(PrioritizedLookupElement.withPriority(lookupElement, 1.0))
             }
         }
     }
 
-    protected open fun getInsertHandler():InsertHandler<LookupElement> = FullPackageInsertHandler()
+    protected open fun getInsertHandler(): InsertHandler<LookupElement> = FullPackageInsertHandler()
 
     internal class FullPackageInsertHandler : InsertHandler<LookupElement> {
 

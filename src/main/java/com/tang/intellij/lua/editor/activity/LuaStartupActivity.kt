@@ -16,6 +16,8 @@
 
 package com.tang.intellij.lua.editor.activity
 
+import com.intellij.codeInsight.lookup.LookupManager
+import com.intellij.codeInsight.lookup.LookupManagerListener
 import com.intellij.ide.actions.searcheverywhere.SearchEverywhereContributor
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.AnAction
@@ -27,6 +29,7 @@ import com.intellij.openapi.fileEditor.TextEditor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.ProjectActivity
 import com.intellij.openapi.vfs.VirtualFile
+import com.tang.intellij.lua.editor.LuaLookupListener
 import com.tang.intellij.lua.editor.LuaSymbolSearchEverywhereContributor
 import com.tang.intellij.lua.editor.services.StickyPanelManager
 
@@ -67,6 +70,7 @@ class LuaStartupActivity: ProjectActivity {
 
         // Register your custom action
         actionManager.registerAction(actionId, LuaSymbolSearchEverywhereContributor.LuaSymbolSearchEverywhereAction())
+//        project.messageBus.connect().subscribe(LookupManagerListener.TOPIC, LuaLookupListener())
     }
 
     companion object {
