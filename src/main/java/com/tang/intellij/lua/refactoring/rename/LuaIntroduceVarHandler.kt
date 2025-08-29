@@ -29,11 +29,6 @@ import com.intellij.refactoring.IntroduceTargetChooser
 import com.intellij.refactoring.RefactoringActionHandler
 import com.intellij.refactoring.introduce.inplace.InplaceVariableIntroducer
 import com.intellij.refactoring.introduce.inplace.OccurrencesChooser
-import com.intellij.refactoring.introduce.inplace.OccurrencesChooser.ReplaceChoice
-import com.intellij.refactoring.suggested.createSmartPointer
-import com.intellij.refactoring.suggested.endOffset
-import com.tang.intellij.lua.codeInsight.template.macro.SuggestFirstLuaVarNameMacro
-import com.tang.intellij.lua.lang.LuaLanguage
 import com.tang.intellij.lua.psi.*
 import com.tang.intellij.lua.refactoring.LuaRefactoringUtil
 
