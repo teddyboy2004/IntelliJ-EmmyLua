@@ -29,6 +29,10 @@ import com.intellij.refactoring.IntroduceTargetChooser
 import com.intellij.refactoring.RefactoringActionHandler
 import com.intellij.refactoring.introduce.inplace.InplaceVariableIntroducer
 import com.intellij.refactoring.introduce.inplace.OccurrencesChooser
+import com.intellij.refactoring.suggested.createSmartPointer
+import com.intellij.refactoring.suggested.endOffset
+import com.tang.intellij.lua.codeInsight.template.macro.SuggestFirstLuaVarNameMacro
+import com.tang.intellij.lua.lang.LuaLanguage
 import com.tang.intellij.lua.psi.*
 import com.tang.intellij.lua.refactoring.LuaRefactoringUtil
 
@@ -38,7 +42,7 @@ import com.tang.intellij.lua.refactoring.LuaRefactoringUtil
  */
 class LuaIntroduceVarHandler : RefactoringActionHandler {
 
-    internal inner class IntroduceOperation(
+    internal class IntroduceOperation(
             val element: PsiElement,
             val project: Project,
             val editor: Editor,
@@ -136,18 +140,18 @@ class LuaIntroduceVarHandler : RefactoringActionHandler {
         }
 
         val operation = IntroduceOperation(expr, project, editor, expr.containingFile, occurrences!!)
-        val occurrencesMap = LinkedHashMap<ReplaceChoice, List<PsiElement>>()
-        occurrencesMap[ReplaceChoice.NO] = listOf<PsiElement>(expr)
+        val occurrencesMap = LinkedHashMap<OccurrencesChooser.ReplaceChoice, List<PsiElement>>()
+        occurrencesMap[OccurrencesChooser.ReplaceChoice.NO] = listOf<PsiElement>(expr)
         if (occurrences.size > 1) {
             val filterWrite = occurrences.filter { psiElement -> psiElement.parent !is LuaVarList }
             if (filterWrite.isNotEmpty() && filterWrite.size != occurrences.size) {
-                occurrencesMap[ReplaceChoice.NO_WRITE] = filterWrite
+                occurrencesMap[OccurrencesChooser.ReplaceChoice.NO_WRITE] = filterWrite
             }
-            occurrencesMap[ReplaceChoice.ALL] = occurrences
+            occurrencesMap[OccurrencesChooser.ReplaceChoice.ALL] = occurrences
         }
-        val callback = object : Pass<ReplaceChoice>() {
-            override fun pass(choice: ReplaceChoice) {
-                operation.isReplaceAll = choice != ReplaceChoice.NO
+        val callback = object : Pass<OccurrencesChooser.ReplaceChoice>() {
+            override fun pass(choice: OccurrencesChooser.ReplaceChoice) {
+                operation.isReplaceAll = choice != OccurrencesChooser.ReplaceChoice.NO
                 if (occurrencesMap[choice] != null) {
                     operation.occurrences = occurrencesMap[choice]!!
                 }
@@ -156,7 +160,7 @@ class LuaIntroduceVarHandler : RefactoringActionHandler {
             }
         }
         if (occurrences.size == 1) {
-            callback.pass(ReplaceChoice.ALL)
+            callback.pass(OccurrencesChooser.ReplaceChoice.ALL)
         } else {
             OccurrencesChooser.simpleChooser<PsiElement>(editor).showChooser(callback, occurrencesMap)
         }

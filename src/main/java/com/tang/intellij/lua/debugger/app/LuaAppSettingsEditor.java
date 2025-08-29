@@ -60,18 +60,14 @@ public class LuaAppSettingsEditor extends SettingsEditor<LuaAppRunConfiguration>
     private EnvironmentVariablesTextFieldWithBrowseButton myEnvironments;
     private ComboBox<String> outputCharset;
     private JCheckBox showConsoleWindowCheckBox;
-    private final Project project;
+    private Project project;
 
     LuaAppSettingsEditor(Project project) {
         this.project = project;
-        FileChooserDescriptor descriptor = FileChooserDescriptorFactory.createSingleFileNoJarsDescriptor()
-                .withTitle("Choose Program")
-                .withDescription("Choose program file");
-        myProgram.addBrowseFolderListener(project, descriptor);
-        descriptor = FileChooserDescriptorFactory.createSingleFolderDescriptor()
-                .withTitle("Choose Working Dir")
-                .withDescription("Choose working dir");
-        myWorkingDir.addBrowseFolderListener(project, descriptor);
+        FileChooserDescriptor descriptor = FileChooserDescriptorFactory.createSingleFileNoJarsDescriptor();
+        myProgram.addBrowseFolderListener("Choose Program", "Choose program file", project, descriptor);
+        descriptor = FileChooserDescriptorFactory.createSingleFolderDescriptor();
+        myWorkingDir.addBrowseFolderListener("Choose Working Dir", "Choose working dir", project, descriptor);
 
         DebuggerType[] debuggerTypes = new DebuggerType[] { DebuggerType.Mob };
         /*if (SystemInfoRt.isWindows)

@@ -14,17 +14,16 @@
  * limitations under the License.
  */
 
-import de.undercouch.gradle.tasks.download.Download
+import de.undercouch.gradle.tasks.download.*
 import org.apache.tools.ant.taskdefs.condition.Os
-import org.jetbrains.intellij.platform.gradle.tasks.PrepareSandboxTask
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.gradle.internal.impldep.com.google.api.client.util.DateTime
 import java.io.ByteArrayOutputStream
 import java.text.SimpleDateFormat
 import java.util.*
 
 plugins {
-    id("org.jetbrains.intellij.platform") version "2.7.0"
-    id("org.jetbrains.kotlin.jvm").version("2.1.0")
+    id("org.jetbrains.intellij").version("1.13.3")
+    id("org.jetbrains.kotlin.jvm").version("1.8.21")
     id("de.undercouch.download").version("5.3.0")
 }
 
@@ -164,11 +163,8 @@ task("installEmmyDebugger", type = Copy::class) {
 
 project(":") {
     repositories {
+        maven(url = "https://www.jetbrains.com/intellij-repository/releases")
         mavenCentral()
-        intellijPlatform {
-            defaultRepositories()
-            marketplace()
-        }
     }
 
     dependencies {
@@ -178,10 +174,6 @@ project(":") {
         implementation("org.luaj:luaj-jse:3.0.1")
         implementation("org.eclipse.mylyn.github:org.eclipse.egit.github.core:2.1.5")
         implementation("com.jgoodies:forms:1.2.1")
-        intellijPlatform {
-            intellijIdeaCommunity(buildVersionData.ideaSDKShortVersion)
-            bundledModule("intellij.spellchecker")
-        }
     }
 
     sourceSets {
@@ -197,9 +189,13 @@ project(":") {
         targetCompatibility = buildVersionData.targetCompatibilityLevel
     }*/
 
-    intellijPlatform {
-        version = version
-        sandboxContainer.set(layout.buildDirectory.dir("${buildVersionData.ideaSDKShortVersion}/idea-sandbox"))
+    intellij {
+        type.set("IC")
+        updateSinceUntilBuild.set(false)
+        downloadSources.set(!isCI)
+        version.set(buildVersionData.ideaSDKVersion)
+        //localPath.set(System.getenv("IDEA_HOME_${buildVersionData.ideaSDKShortVersion}"))
+        sandboxDir.set("${project.buildDir}/${buildVersionData.ideaSDKShortVersion}/idea-sandbox")
     }
 
     task("bunch") {
@@ -246,22 +242,25 @@ project(":") {
 
 
         compileKotlin {
-            compilerOptions {
-                jvmTarget.set(JvmTarget.fromTarget(buildVersionData.jvmTarget))
+            kotlinOptions {
+                jvmTarget = buildVersionData.jvmTarget
             }
         }
 
         patchPluginXml {
-            dependsOn("installEmmyDebugger")
             sinceBuild.set(buildVersionData.sinceBuild)
             untilBuild.set(buildVersionData.untilBuild)
+        }
+
+        instrumentCode {
+            compilerVersion.set(buildVersionData.instrumentCodeCompilerVersion)
         }
 
         publishPlugin {
             token.set(System.getenv("IDEA_PUBLISH_TOKEN"))
         }
 
-        withType<PrepareSandboxTask> {
+        withType<org.jetbrains.intellij.tasks.PrepareSandboxTask> {
             doLast {
                 copy {
                     from("src/main/resources/std")
